@@ -5,12 +5,11 @@
 }(this, (function (exports) { 'use strict';
 
 	/*!
-	 * CustomBounce 3.12.7
+	 * CustomBounce 3.15.0
 	 * https://gsap.com
 	 *
-	 * @license Copyright 2008-2025, GreenSock. All rights reserved.
-	 * Subject to the terms at https://gsap.com/standard-license or for
-	 * Club GSAP members, the agreement issued with that membership.
+	 * @license Copyright 2008-2026, GreenSock. All rights reserved.
+	 * Subject to the terms at https://gsap.com/standard-license
 	 * @author: Jack Doyle, jack@greensock.com
 	*/
 	var gsap,
@@ -159,7 +158,7 @@
 	  return CustomBounce;
 	}();
 	_getGSAP() && gsap.registerPlugin(CustomBounce);
-	CustomBounce.version = "3.12.7";
+	CustomBounce.version = "3.15.0";
 
 	exports.CustomBounce = CustomBounce;
 	exports.default = CustomBounce;

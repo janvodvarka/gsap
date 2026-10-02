@@ -20,6 +20,24 @@
     return Constructor;
   }
 
+  function _extends() {
+    _extends = Object.assign || function (target) {
+      for (var i = 1; i < arguments.length; i++) {
+        var source = arguments[i];
+
+        for (var key in source) {
+          if (Object.prototype.hasOwnProperty.call(source, key)) {
+            target[key] = source[key];
+          }
+        }
+      }
+
+      return target;
+    };
+
+    return _extends.apply(this, arguments);
+  }
+
   function _inheritsLoose(subClass, superClass) {
     subClass.prototype = Object.create(superClass.prototype);
     subClass.prototype.constructor = subClass;
@@ -34,13 +52,49 @@
     return self;
   }
 
+  function _unsupportedIterableToArray(o, minLen) {
+    if (!o) return;
+    if (typeof o === "string") return _arrayLikeToArray(o, minLen);
+    var n = Object.prototype.toString.call(o).slice(8, -1);
+    if (n === "Object" && o.constructor) n = o.constructor.name;
+    if (n === "Map" || n === "Set") return Array.from(n);
+    if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+  }
+
+  function _arrayLikeToArray(arr, len) {
+    if (len == null || len > arr.length) len = arr.length;
+
+    for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
+
+    return arr2;
+  }
+
+  function _createForOfIteratorHelperLoose(o) {
+    var i = 0;
+
+    if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) {
+      if (Array.isArray(o) || (o = _unsupportedIterableToArray(o))) return function () {
+        if (i >= o.length) return {
+          done: true
+        };
+        return {
+          done: false,
+          value: o[i++]
+        };
+      };
+      throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+    }
+
+    i = o[Symbol.iterator]();
+    return i.next.bind(i);
+  }
+
   /*!
-   * GSAP 3.12.7
+   * GSAP 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var _config = {
@@ -93,6 +147,8 @@
   },
       _isTypedArray = typeof ArrayBuffer === "function" && ArrayBuffer.isView || function () {},
       _isArray = Array.isArray,
+      _randomExp = /random\([^)]+\)/g,
+      _commaDelimExp = /,\s*/g,
       _strictNumExp = /(?:-?\.?\d|\.)+/gi,
       _numExp = /[-+=.]*\d+[.e\-+]*\d*[e\-+]*\d*/g,
       _numWithUnitExp = /[-+=.]*\d+[.e-]*\d*[a-z%]*/g,
@@ -208,9 +264,12 @@
       tween && tween._lazy && (tween.render(tween._lazy[0], tween._lazy[1], true)._lazy = 0);
     }
   },
+      _isRevertWorthy = function _isRevertWorthy(animation) {
+    return !!(animation._initted || animation._startAt || animation.add);
+  },
       _lazySafeRender = function _lazySafeRender(animation, time, suppressEvents, force) {
     _lazyTweens.length && !_reverting && _lazyRender();
-    animation.render(time, suppressEvents, force || _reverting && time < 0 && (animation._initted || animation._startAt));
+    animation.render(time, suppressEvents, force || !!(_reverting && time < 0 && _isRevertWorthy(animation)));
     _lazyTweens.length && !_reverting && _lazyRender();
   },
       _numericIfPossible = function _numericIfPossible(value) {
@@ -848,23 +907,12 @@
       return min + (value > range ? total - value : value);
     });
   },
-      _replaceRandom = function _replaceRandom(value) {
-    var prev = 0,
-        s = "",
-        i,
-        nums,
-        end,
-        isArray;
-
-    while (~(i = value.indexOf("random(", prev))) {
-      end = value.indexOf(")", i);
-      isArray = value.charAt(i + 7) === "[";
-      nums = value.substr(i + 7, end - i - 7).match(isArray ? _delimitedValueExp : _strictNumExp);
-      s += value.substr(prev, i - prev) + random(isArray ? nums : +nums[0], isArray ? 0 : +nums[1], +nums[2] || 1e-5);
-      prev = end + 1;
-    }
-
-    return s + value.substr(prev, value.length - prev);
+      _replaceRandom = function _replaceRandom(s) {
+    return s.replace(_randomExp, function (match) {
+      var arIndex = match.indexOf("[") + 1,
+          values = match.substring(arIndex || 7, arIndex ? match.indexOf("]") : match.length - 1).split(_commaDelimExp);
+      return random(arIndex ? values : +values[0], arIndex ? 0 : +values[1], +values[2] || 1e-5);
+    });
   },
       mapRange = function mapRange(inMin, inMax, outMin, outMax, value) {
     var inRange = inMax - inMin,
@@ -1380,27 +1428,6 @@
       return 1 - ease(1 - p);
     };
   },
-      _propagateYoyoEase = function _propagateYoyoEase(timeline, isYoyo) {
-    var child = timeline._first,
-        ease;
-
-    while (child) {
-      if (child instanceof Timeline) {
-        _propagateYoyoEase(child, isYoyo);
-      } else if (child.vars.yoyoEase && (!child._yoyo || !child._repeat) && child._yoyo !== isYoyo) {
-        if (child.timeline) {
-          _propagateYoyoEase(child.timeline, isYoyo);
-        } else {
-          ease = child._ease;
-          child._ease = child._yEase;
-          child._yEase = ease;
-          child._yoyo = isYoyo;
-        }
-      }
-
-      child = child._next;
-    }
-  },
       _parseEase = function _parseEase(ease, defaultEase) {
     return !ease ? defaultEase : (_isFunction(ease) ? ease : _easeMap[ease] || _configEaseFromString(ease)) || defaultEase;
   },
@@ -1629,7 +1656,7 @@
         }
       }
 
-      if (this._tTime !== _totalTime || !this._dur && !suppressEvents || this._initted && Math.abs(this._zTime) === _tinyNum || !_totalTime && !this._initted && (this.add || this._ptLookup)) {
+      if (this._tTime !== _totalTime || !this._dur && !suppressEvents || this._initted && Math.abs(this._zTime) === _tinyNum || !this._initted && this._dur && _totalTime || !_totalTime && !this._initted && (this.add || this._ptLookup)) {
         this._ts || (this._pTime = _totalTime);
 
         _lazySafeRender(this, _totalTime, suppressEvents);
@@ -1668,7 +1695,7 @@
       var tTime = this.parent && this._ts ? _parentToChildTotalTime(this.parent._time, this) : this._tTime;
       this._rts = +value || 0;
       this._ts = this._ps || value === -_tinyNum ? 0 : this._rts;
-      this.totalTime(_clamp(-Math.abs(this._delay), this._tDur, tTime), suppressEvents !== false);
+      this.totalTime(_clamp(-Math.abs(this._delay), this.totalDuration(), tTime), suppressEvents !== false);
 
       _setEnd(this);
 
@@ -1699,9 +1726,9 @@
 
     _proto.startTime = function startTime(value) {
       if (arguments.length) {
-        this._start = value;
+        this._start = _roundPrecise(value);
         var parent = this.parent || this._dp;
-        parent && (parent._sort || !this.parent) && _addToTimeline(parent, this, value - this._delay);
+        parent && (parent._sort || !this.parent) && _addToTimeline(parent, this, this._start - this._delay);
         return this;
       }
 
@@ -1725,7 +1752,7 @@
       var prevIsReverting = _reverting;
       _reverting = config;
 
-      if (this._initted || this._startAt) {
+      if (_isRevertWorthy(this)) {
         this.timeline && this.timeline.revert(config);
         this.totalTime(-0.01, config.suppressEvents);
       }
@@ -1848,12 +1875,14 @@
     };
 
     _proto.then = function then(onFulfilled) {
-      var self = this;
+      var self = this,
+          prevProm = self._prom;
       return new Promise(function (resolve) {
         var f = _isFunction(onFulfilled) ? onFulfilled : _passThrough,
             _resolve = function _resolve() {
           var _then = self.then;
           self.then = null;
+          prevProm && prevProm();
           _isFunction(f) && (f = f(self)) && (f.then || f === self) && (self.then = _then);
           resolve(f);
           self.then = _then;
@@ -2050,7 +2079,11 @@
             this.render(prevTime || (isYoyo ? 0 : _roundPrecise(iteration * cycleDuration)), suppressEvents, !dur)._lock = 0;
             this._tTime = tTime;
             !suppressEvents && this.parent && _callback(this, "onRepeat");
-            this.vars.repeatRefresh && !isYoyo && (this.invalidate()._lock = 1);
+
+            if (this.vars.repeatRefresh && !isYoyo) {
+              this.invalidate()._lock = 1;
+              prevIteration = iteration;
+            }
 
             if (prevTime && prevTime !== this._time || prevPaused !== !this._ts || this.vars.onRepeat && !this.parent && !this._act) {
               return this;
@@ -2071,8 +2104,6 @@
             if (!this._ts && !prevPaused) {
               return this;
             }
-
-            _propagateYoyoEase(this, isYoyo);
           }
         }
 
@@ -2086,7 +2117,7 @@
 
         this._tTime = tTime;
         this._time = time;
-        this._act = !timeScale;
+        this._act = !!timeScale;
 
         if (!this._initted) {
           this._onUpdate = this.vars.onUpdate;
@@ -2095,7 +2126,7 @@
           prevTime = 0;
         }
 
-        if (!prevTime && time && !suppressEvents && !iteration) {
+        if (!prevTime && tTime && dur && !suppressEvents && !prevIteration) {
           _callback(this, "onStart");
 
           if (this._tTime !== tTime) {
@@ -2137,7 +2168,7 @@
                 return this.render(totalTime, suppressEvents, force);
               }
 
-              child.render(child._ts > 0 ? (adjustedTime - child._start) * child._ts : (child._dirty ? child.totalDuration() : child._tDur) + (adjustedTime - child._start) * child._ts, suppressEvents, force || _reverting && (child._initted || child._startAt));
+              child.render(child._ts > 0 ? (adjustedTime - child._start) * child._ts : (child._dirty ? child.totalDuration() : child._tDur) + (adjustedTime - child._start) * child._ts, suppressEvents, force || _reverting && _isRevertWorthy(child));
 
               if (time !== this._time || !this._ts && !prevPaused) {
                 pauseTween = 0;
@@ -2424,6 +2455,7 @@
       var child = this._first,
           labels = this.labels,
           p;
+      amount = _roundPrecise(amount);
 
       while (child) {
         if (child._start >= ignoreBeforeTime) {
@@ -2508,7 +2540,7 @@
             max -= start;
 
             if (!parent && !self._dp || parent && parent.smoothChildTiming) {
-              self._start += start / self._ts;
+              self._start += _roundPrecise(start / self._ts);
               self._time -= start;
               self._tTime -= start;
             }
@@ -2708,6 +2740,7 @@
         fullTargets = parent && parent.data === "nested" ? parent.vars.targets : targets,
         autoOverwrite = tween._overwrite === "auto" && !_suppressOverwrites,
         tl = tween.timeline,
+        reverseEase = vars.easeReverse || yoyoEase,
         cleanVars,
         i,
         p,
@@ -2723,15 +2756,9 @@
         overwritten;
     tl && (!keyframes || !ease) && (ease = "none");
     tween._ease = _parseEase(ease, _defaults.ease);
-    tween._yEase = yoyoEase ? _invertEase(_parseEase(yoyoEase === true ? ease : yoyoEase, _defaults.ease)) : 0;
-
-    if (yoyoEase && tween._yoyo && !tween._repeat) {
-      yoyoEase = tween._yEase;
-      tween._yEase = tween._ease;
-      tween._ease = yoyoEase;
-    }
-
+    tween._rEase = reverseEase && (_parseEase(reverseEase) || tween._ease);
     tween._from = !tl && !!vars.runBackwards;
+    if (tween._from) tween.ratio = 1;
 
     if (!tl || keyframes && !vars.stagger) {
       harness = targets[0] ? _getCache(targets[0]).harness : 0;
@@ -2879,7 +2906,7 @@
           _initTween(tween, time);
 
           _forceAllPropTweens = 0;
-          return skipRecursion ? _warn(property + " not eligible for reset") : 1;
+          return skipRecursion ? _warn(property + " not eligible for reset. Try splitting into individual properties") : 1;
         }
 
         ptCache.push(pt);
@@ -2952,7 +2979,7 @@
       _parseFuncOrString = function _parseFuncOrString(value, tween, i, target, targets) {
     return _isFunction(value) ? value.call(tween, i, target, targets) : _isString(value) && ~value.indexOf("random(") ? _replaceRandom(value) : value;
   },
-      _staggerTweenProps = _callbackNames + "repeat,repeatDelay,yoyo,repeatRefresh,yoyoEase,autoRevert",
+      _staggerTweenProps = _callbackNames + "repeat,repeatDelay,yoyo,repeatRefresh,yoyoEase,easeReverse,autoRevert",
       _staggerPropsToSkip = {};
 
   _forEachName(_staggerTweenProps + ",id,stagger,delay,duration,paused,scrollTrigger", function (name) {
@@ -2981,7 +3008,6 @@
           keyframes = _this3$vars.keyframes,
           defaults = _this3$vars.defaults,
           scrollTrigger = _this3$vars.scrollTrigger,
-          yoyoEase = _this3$vars.yoyoEase,
           parent = vars.parent || _globalTimeline,
           parsedTargets = (_isArray(targets) || _isTypedArray(targets) ? _isNumber(targets[0]) : "length" in vars) ? [targets] : toArray(targets),
           tl,
@@ -2998,6 +3024,7 @@
 
       if (keyframes || stagger || _isFuncOrString(duration) || _isFuncOrString(delay)) {
         vars = _this3.vars;
+        var easeReverse = vars.easeReverse || vars.yoyoEase;
         tl = _this3.timeline = new Timeline({
           data: "nested",
           defaults: defaults || {},
@@ -3023,7 +3050,7 @@
           for (i = 0; i < l; i++) {
             copy = _copyExcluding(vars, _staggerPropsToSkip);
             copy.stagger = 0;
-            yoyoEase && (copy.yoyoEase = yoyoEase);
+            easeReverse && (copy.easeReverse = easeReverse);
             staggerVarsToMerge && _merge(copy, staggerVarsToMerge);
             curTarget = parsedTargets[i];
             copy.duration = +_parseFuncOrString(duration, _assertThisInitialized(_this3), i, curTarget, parsedTargets);
@@ -3130,8 +3157,7 @@
           prevIteration,
           isYoyo,
           ratio,
-          timeline,
-          yoyoEase;
+          timeline;
 
       if (!dur) {
         _renderZeroDurationTween(this, totalTime, suppressEvents, force);
@@ -3164,12 +3190,7 @@
           }
 
           isYoyo = this._yoyo && iteration & 1;
-
-          if (isYoyo) {
-            yoyoEase = this._yEase;
-            time = dur - time;
-          }
-
+          if (isYoyo) time = dur - time;
           prevIteration = _animationCycle(this._tTime, cycleDuration);
 
           if (time === prevTime && !force && this._initted && iteration === prevIteration) {
@@ -3178,8 +3199,6 @@
           }
 
           if (iteration !== prevIteration) {
-            timeline && this._yEase && _propagateYoyoEase(timeline, isYoyo);
-
             if (this.vars.repeatRefresh && !isYoyo && !this._lock && time !== cycleDuration && this._initted) {
               this._lock = force = 1;
               this.render(_roundPrecise(cycleDuration * iteration), true).invalidate()._lock = 0;
@@ -3202,6 +3221,26 @@
           }
         }
 
+        if (this._rEase) {
+          var inv = time < prevTime;
+
+          if (inv !== this._inv) {
+            var segDur = inv ? prevTime : dur - prevTime;
+            this._inv = inv;
+            if (this._from) this.ratio = 1 - this.ratio;
+            this._invRatio = this.ratio;
+            this._invTime = prevTime;
+            this._invRecip = segDur ? (inv ? -1 : 1) / segDur : 0;
+            this._invScale = inv ? -this.ratio : 1 - this.ratio;
+            this._invEase = inv ? this._rEase : this._ease;
+          }
+
+          this.ratio = ratio = this._invRatio + this._invScale * this._invEase((time - this._invTime) * this._invRecip);
+        } else {
+          this.ratio = ratio = this._ease(time / dur);
+        }
+
+        if (this._from) this.ratio = ratio = 1 - ratio;
         this._tTime = tTime;
         this._time = time;
 
@@ -3210,13 +3249,7 @@
           this._lazy = 0;
         }
 
-        this.ratio = ratio = (yoyoEase || this._ease)(time / dur);
-
-        if (this._from) {
-          this.ratio = ratio = 1 - ratio;
-        }
-
-        if (time && !prevTime && !suppressEvents && !iteration) {
+        if (!prevTime && tTime && !suppressEvents && !prevIteration) {
           _callback(this, "onStart");
 
           if (this._tTime !== tTime) {
@@ -3574,7 +3607,7 @@
     return PropTween;
   }();
 
-  _forEachName(_callbackNames + "parent,duration,ease,delay,overwrite,runBackwards,startAt,yoyo,immediateRender,repeat,repeatDelay,data,paused,reversed,lazy,callbackScope,stringFilter,id,yoyoEase,stagger,inherit,repeatRefresh,keyframes,autoRevert,scrollTrigger", function (name) {
+  _forEachName(_callbackNames + "parent,duration,ease,delay,overwrite,runBackwards,startAt,yoyo,immediateRender,repeat,repeatDelay,data,paused,reversed,lazy,callbackScope,stringFilter,id,yoyoEase,stagger,inherit,repeatRefresh,keyframes,autoRevert,scrollTrigger,easeReverse", function (name) {
     return _reservedProps[name] = 1;
   });
 
@@ -4100,6 +4133,7 @@
       _buildModifierPlugin = function _buildModifierPlugin(name, modifier) {
     return {
       name: name,
+      headless: 1,
       rawVars: 1,
       init: function init(target, vars, tween) {
         tween._onInit = function (tween) {
@@ -4156,6 +4190,7 @@
     }
   }, {
     name: "endArray",
+    headless: 1,
     init: function init(target, value) {
       var i = value.length;
 
@@ -4164,7 +4199,7 @@
       }
     }
   }, _buildModifierPlugin("roundProps", _roundModifier), _buildModifierPlugin("modifiers"), _buildModifierPlugin("snap", snap)) || _gsap;
-  Tween.version = Timeline.version = gsap.version = "3.12.7";
+  Tween.version = Timeline.version = gsap.version = "3.15.0";
   _coreReady = 1;
   _windowExists() && _wake();
   var Power0 = _easeMap.Power0,
@@ -4218,6 +4253,9 @@
   },
       _renderCSSPropWithBeginning = function _renderCSSPropWithBeginning(ratio, data) {
     return data.set(data.t, data.p, ratio ? Math.round((data.s + data.c * ratio) * 10000) / 10000 + data.u : data.b, data);
+  },
+      _renderCSSPropWithBeginningAndEnd = function _renderCSSPropWithBeginningAndEnd(ratio, data) {
+    return data.set(data.t, data.p, ratio === 1 ? data.e : ratio ? Math.round((data.s + data.c * ratio) * 10000) / 10000 + data.u : data.b, data);
   },
       _renderRoundedCSSProp = function _renderRoundedCSSProp(ratio, data) {
     var value = data.s + data.c * ratio;
@@ -4609,6 +4647,10 @@
     pt.e = end;
     start += "";
     end += "";
+
+    if (end.substring(0, 6) === "var(--") {
+      end = _getComputedProperty(target, end.substring(4, end.indexOf(")")));
+    }
 
     if (end === "auto") {
       startValue = target.style[prop];
@@ -5383,7 +5425,8 @@
           cache,
           smooth,
           hasPriority,
-          inlineProps;
+          inlineProps,
+          finalTransformValue;
       _pluginInitted || _initCore();
       this.styles = this.styles || _getStyleSaver(target);
       inlineProps = this.styles.props;
@@ -5422,9 +5465,9 @@
           if (!_colorExp.test(startValue)) {
             startUnit = getUnit(startValue);
             endUnit = getUnit(endValue);
+            endUnit ? startUnit !== endUnit && (startValue = _convertToUnit(target, p, startValue, endUnit) + endUnit) : startUnit && (endValue += startUnit);
           }
 
-          endUnit ? startUnit !== endUnit && (startValue = _convertToUnit(target, p, startValue, endUnit) + endUnit) : startUnit && (endValue += startUnit);
           this.add(style, "setProperty", startValue, endValue, index, targets, 0, 0, p);
           props.push(p);
           inlineProps.push(p, 0, style[p]);
@@ -5464,6 +5507,20 @@
 
           if (isTransformRelated) {
             this.styles.save(p);
+            finalTransformValue = endValue;
+
+            if (type === "string" && endValue.substring(0, 6) === "var(--") {
+              endValue = _getComputedProperty(target, endValue.substring(4, endValue.indexOf(")")));
+
+              if (endValue.substring(0, 5) === "calc(") {
+                var origPerspective = target.style.perspective;
+                target.style.perspective = endValue;
+                endValue = _getComputedProperty(target, "perspective");
+                origPerspective ? target.style.perspective = origPerspective : _removeProperty(target, "perspective");
+              }
+
+              endNum = parseFloat(endValue);
+            }
 
             if (!transformPropTween) {
               cache = target._gsap;
@@ -5524,7 +5581,11 @@
             this._pt = new PropTween(this._pt, isTransformRelated ? cache : style, p, startNum, (relative ? _parseRelative(startNum, relative + endNum) : endNum) - startNum, !isTransformRelated && (endUnit === "px" || p === "zIndex") && vars.autoRound !== false ? _renderRoundedCSSProp : _renderCSSProp);
             this._pt.u = endUnit || 0;
 
-            if (startUnit !== endUnit && endUnit !== "%") {
+            if (isTransformRelated && finalTransformValue !== endValue) {
+              this._pt.b = startValue;
+              this._pt.e = finalTransformValue;
+              this._pt.r = _renderCSSPropWithBeginningAndEnd;
+            } else if (startUnit !== endUnit && endUnit !== "%") {
               this._pt.b = startValue;
               this._pt.r = _renderCSSPropWithBeginning;
             }
@@ -5630,6 +5691,9 @@
   },
       _roundPrecise$1 = function _roundPrecise(value) {
     return Math.round(value * 1e10) / 1e10 || 0;
+  },
+      _segmentIsClosed = function _segmentIsClosed(segment) {
+    return segment.closed = Math.abs(segment[0] - segment[segment.length - 2]) < 0.001 && Math.abs(segment[1] - segment[segment.length - 1]) < 0.001;
   },
       _splitSegment = function _splitSegment(rawPath, segIndex, i, t) {
     var segment = rawPath[segIndex],
@@ -6093,8 +6157,8 @@
 
     for (i = pathLength = points = 0; i < rawPath.length; i++) {
       rawPath[i].resolution = ~~resolution || 12;
-      points += rawPath[i].length;
       pathLength += measureSegment(rawPath[i]);
+      points += rawPath[i].length;
     }
 
     rawPath.totalPoints = points;
@@ -6442,6 +6506,8 @@
           } else {
             points += segment.length;
           }
+
+          _segmentIsClosed(segment);
         }
 
         relativeX = startX = x;
@@ -6559,8 +6625,8 @@
     if (i < 6) {
       path.pop();
       i = 0;
-    } else if (segment[0] === segment[i - 2] && segment[1] === segment[i - 1]) {
-      segment.closed = true;
+    } else {
+      _segmentIsClosed(segment);
     }
 
     path.totalPoints = points + i;
@@ -6616,6 +6682,87 @@
 
     return segment;
   }
+  function segmentToDistributedPoints(segment, totalPoints) {
+    segment.samples || measureSegment(segment);
+    var samples = segment.samples,
+        lookup = segment.lookup,
+        resolution = segment.resolution,
+        totalLength = segment.totalLength,
+        points = segment.slice(0, 2),
+        curveStoppingPoints = [],
+        l = segment.length - 4,
+        i = 6,
+        limit = 0.2,
+        startLength = 0,
+        curvePointsCumulative = 0,
+        t,
+        curvePoints,
+        min,
+        max,
+        ci,
+        ratioInc,
+        j,
+        inv,
+        curveLength,
+        length,
+        a,
+        nonSmooth,
+        curveStoppingPointIndex,
+        sampleIndex;
+
+    for (; i < l; i += 6) {
+      if (Math.abs(_atan2$1(segment[i + 1] - segment[i - 1], segment[i] - segment[i - 2]) - _atan2$1(segment[i + 3] - segment[i + 1], segment[i + 2] - segment[i])) > limit) {
+        curveStoppingPoints.push(i);
+      }
+    }
+
+    curveStoppingPoints.push(segment.length - 2);
+    l = curveStoppingPoints.length;
+    points.nonSmooth = nonSmooth = [1];
+
+    if (totalPoints > l) {
+      totalPoints -= l;
+
+      for (ci = 0; ci < l; ci++) {
+        curveStoppingPointIndex = curveStoppingPoints[ci];
+        sampleIndex = Math.round(curveStoppingPointIndex / 6 * resolution);
+        curveLength = samples[sampleIndex - 1] - startLength;
+        curvePoints = Math.round(samples[sampleIndex - 1] / totalLength * totalPoints) - curvePointsCumulative;
+        curvePointsCumulative += curvePoints;
+        ratioInc = 1 / (curvePoints + 1);
+
+        for (j = 1; j <= curvePoints; j++) {
+          length = startLength + curveLength * j * ratioInc;
+          i = lookup.length ? lookup[length < totalLength ? ~~(length / segment.minLength) : lookup.length - 1] || 0 : _getSampleIndex(samples, length, length / totalLength);
+          min = i ? samples[i - 1] : 0;
+          max = samples[i];
+
+          if (max < length) {
+            min = max;
+            max = samples[++i];
+          }
+
+          t = 1 / resolution * ((length - min) / (max - min) + i % resolution) || 0;
+          inv = 1 - t;
+          i = ~~(i / resolution) * 6;
+          a = segment[i];
+          points.push(_round$1((t * t * (segment[i + 6] - a) + 3 * inv * (t * (segment[i + 4] - a) + inv * (segment[i + 2] - a))) * t + a), _round$1((t * t * (segment[i + 7] - (a = segment[i + 1])) + 3 * inv * (t * (segment[i + 5] - a) + inv * (segment[i + 3] - a))) * t + a));
+        }
+
+        nonSmooth[points.length] = 1;
+        points.push(segment[curveStoppingPointIndex], segment[curveStoppingPointIndex + 1]);
+        startLength += curveLength;
+      }
+    }
+
+    i = segment.length - 2;
+
+    if (segment.closed && Math.abs(_atan2$1(segment[i + 1] - segment[i - 1], segment[i] - segment[i - 2]) - _atan2$1(segment[3] - segment[1], segment[2] - segment[0])) <= limit) {
+      nonSmooth[0] = nonSmooth[nonSmooth.length - 1] = 0;
+    }
+
+    return points;
+  }
   function pointsToSegment(points, curviness) {
     _abs(points[0] - points[2]) < 1e-4 && _abs(points[1] - points[3]) < 1e-4 && (points = points.slice(2));
     var l = points.length - 2,
@@ -6626,6 +6773,7 @@
         segment = [x, y, x, y],
         dx2 = nextX - x,
         dy2 = nextY - y,
+        nonSmooth = points.nonSmooth || [],
         closed = Math.abs(points[l] - x) < 0.001 && Math.abs(points[l + 1] - y) < 0.001,
         prevX,
         prevY,
@@ -6643,6 +6791,10 @@
         my2,
         mym;
 
+    if (!l) {
+      return [x, y, x, y, x, y, x, y];
+    }
+
     if (closed) {
       points.push(nextX, nextY);
       nextX = x;
@@ -6651,6 +6803,7 @@
       y = points[l - 1];
       points.unshift(x, y);
       l += 4;
+      nonSmooth = [0, 0].concat(nonSmooth);
     }
 
     curviness = curviness || curviness === 0 ? +curviness : 1;
@@ -6671,6 +6824,12 @@
       dy1 = dy2;
       dx2 = nextX - x;
       dy2 = nextY - y;
+
+      if (nonSmooth[i]) {
+        segment.push(x - (x - prevX) / 4, y - (y - prevY) / 4, x, y, x + (nextX - x) / 4, y + (nextY - y) / 4);
+        continue;
+      }
+
       r1 = _sqrt$1(dx1 * dx1 + dy1 * dy1);
       r2 = _sqrt$1(dx2 * dx2 + dy2 * dy2);
       r3 = _sqrt$1(Math.pow(dx2 / r2 + dx1 / r1, 2) + Math.pow(dy2 / r2 + dy1 / r1, 2));
@@ -6681,10 +6840,7 @@
       my1 = y - (y - prevY) * (r1 ? tl / r1 : 0);
       my2 = y + (nextY - y) * (r2 ? tl / r2 : 0);
       mym = y - (my1 + ((my2 - my1) * (r1 * 3 / (r1 + r2) + 0.5) / 4 || 0));
-
-      if (x !== prevX || y !== prevY) {
-        segment.push(_round$1(mx1 + mxm), _round$1(my1 + mym), _round$1(x), _round$1(y), _round$1(mx2 + mxm), _round$1(my2 + mym));
-      }
+      segment.push(_round$1(mx1 + mxm), _round$1(my1 + mym), _round$1(x), _round$1(y), _round$1(mx2 + mxm), _round$1(my2 + mym));
     }
 
     x !== nextX || y !== nextY || segment.length < 4 ? segment.push(_round$1(nextX), _round$1(nextY), _round$1(nextX), _round$1(nextY)) : segment.length -= 2;
@@ -6693,9 +6849,10 @@
       segment.push(x, y, x, y, x, y);
     } else if (closed) {
       segment.splice(0, 6);
-      segment.length = segment.length - 6;
+      segment.length -= 6;
     }
 
+    segment.closed = closed;
     return segment;
   }
 
@@ -6870,12 +7027,11 @@
   }
 
   /*!
-   * CustomEase 3.12.7
+   * CustomEase 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
 
@@ -7187,7 +7343,7 @@
       }
 
       if (ease instanceof CustomEase) {
-        a = rawPathToString(transformRawPath([ease.segment], width, 0, 0, -height, x, y));
+        a = rawPathToString(transformRawPath([ease.segment.slice(0)], width, 0, 0, -height, x, y));
       } else {
         a = [x, y];
         precision = Math.max(5, (config.precision || 1) * 200);
@@ -7220,7 +7376,7 @@
 
     return CustomEase;
   }();
-  CustomEase.version = "3.12.7";
+  CustomEase.version = "3.15.0";
   CustomEase.headless = true;
   _getGSAP() && gsap$1.registerPlugin(CustomEase);
 
@@ -7261,7 +7417,8 @@
       if (root && root.appendChild) {
         root.appendChild(d1);
         d1.appendChild(d2);
-        d1.setAttribute("style", "position:static;transform:translate3d(0,0,1px)");
+        d1.style.position = "static";
+        d1.style.transform = "translate3d(0,0,1px)";
         _hasOffsetBug = d2.offsetParent !== d1;
         root.removeChild(d1);
       }
@@ -7316,17 +7473,28 @@
           type = svg ? i ? "rect" : "g" : "div",
           x = i !== 2 ? 0 : 100,
           y = i === 3 ? 100 : 0,
-          css = "position:absolute;display:block;pointer-events:none;margin:0;padding:0;",
+          css = {
+        position: "absolute",
+        display: "block",
+        pointerEvents: "none",
+        margin: "0",
+        padding: "0"
+      },
           e = _doc$2.createElementNS ? _doc$2.createElementNS(ns.replace(/^https/, "http"), type) : _doc$2.createElement(type);
 
       if (i) {
         if (!svg) {
           if (!_divContainer) {
             _divContainer = _createSibling(element);
-            _divContainer.style.cssText = css;
+            Object.assign(_divContainer.style, css);
           }
 
-          e.style.cssText = css + "width:0.1px;height:0.1px;top:" + y + "px;left:" + x + "px";
+          Object.assign(e.style, css, {
+            width: "0.1px",
+            height: "0.1px",
+            top: y + "px",
+            left: x + "px"
+          });
 
           _divContainer.appendChild(e);
         } else {
@@ -7334,6 +7502,7 @@
           e.setAttribute("width", 0.01);
           e.setAttribute("height", 0.01);
           e.setAttribute("transform", "translate(" + x + "," + y + ")");
+          e.setAttribute("fill", "transparent");
 
           _svgContainer.appendChild(e);
         }
@@ -7374,6 +7543,7 @@
         isRootSVG = element === svg,
         siblings = svg ? _svgTemps : _divTemps,
         parent = element.parentNode,
+        appendToEl = parent && !svg && parent.shadowRoot && parent.shadowRoot.appendChild ? parent.shadowRoot : parent,
         container,
         m,
         b,
@@ -7409,7 +7579,7 @@
         x = y = 0;
       }
 
-      (isRootSVG ? svg : parent).appendChild(container);
+      (isRootSVG || !element.getBoundingClientRect().width ? svg : parent).appendChild(container);
       container.setAttribute("transform", "matrix(" + m.a + "," + m.b + "," + m.c + "," + m.d + "," + (m.e + x) + "," + (m.f + y) + ")");
     } else {
       x = y = 0;
@@ -7445,7 +7615,7 @@
       b[_transformProp$1] = cs[_transformProp$1];
       b[_transformOriginProp$1] = cs[_transformOriginProp$1];
       b.position = cs.position === "fixed" ? "fixed" : "absolute";
-      element.parentNode.appendChild(container);
+      appendToEl.appendChild(container);
     }
 
     return container;
@@ -8700,7 +8870,7 @@
           self.x = parseFloat(gsCache.x);
           self.y = parseFloat(gsCache.y);
         } else if (rotationMode) {
-          self.x = self.rotation = parseFloat(gsCache.rotation);
+          self.x = self.rotation = _round$3(parseFloat(gsCache.rotation));
         } else if (scrollProxy) {
           self.y = scrollProxy.top();
           self.x = scrollProxy.left();
@@ -9251,6 +9421,8 @@
         }
 
         _dispatchEvent(self, "press", "onPress");
+
+        InertiaPlugin && InertiaPlugin.track(scrollProxy || target, xyMode ? "x,y" : rotationMode ? "rotation" : "top,left");
       },
           onMove = function onMove(e) {
         var originalEvent = e,
@@ -9354,7 +9526,7 @@
         }
 
         if (rotationMode) {
-          y = Math.atan2(rotationOrigin.y - pointerY, pointerX - rotationOrigin.x) * _RAD2DEG$2;
+          y = _round$3(Math.atan2(rotationOrigin.y - pointerY, pointerX - rotationOrigin.x) * _RAD2DEG$2);
           dif = self.y - y;
 
           if (dif > 180) {
@@ -9365,9 +9537,15 @@
             self.y = y;
           }
 
+          if (matrix) {
+            temp = pointerX * matrix.a + pointerY * matrix.c + matrix.e;
+            pointerY = pointerX * matrix.b + pointerY * matrix.d + matrix.f;
+            pointerX = temp;
+          }
+
           if (self.x !== startElementX || Math.max(Math.abs(startPointerX - pointerX), Math.abs(startPointerY - pointerY)) > minimumMovement) {
             self.y = y;
-            x = startElementX + (startElementY - y) * dragTolerance;
+            x = _round$3(startElementX + (startElementY - y) * dragTolerance);
           } else {
             x = startElementX;
           }
@@ -9447,7 +9625,7 @@
 
         if (self.x !== x || self.y !== y && !rotationMode) {
           if (rotationMode) {
-            self.endRotation = self.x = self.endX = x;
+            self.endRotation = self.x = self.endX = _round$3(x);
             dirty = true;
           } else {
             if (allowY) {
@@ -9854,18 +10032,23 @@
 
       _this2.update = function (applyBounds, sticky, ignoreExternalChanges) {
         if (sticky && self.isPressed) {
-          var m = getGlobalMatrix(target),
-              p = innerMatrix.apply({
-            x: self.x - startElementX,
-            y: self.y - startElementY
-          }),
-              m2 = getGlobalMatrix(target.parentNode, true);
-          m2.apply({
-            x: m.e - p.x,
-            y: m.f - p.y
-          }, p);
-          self.x -= p.x - m2.e;
-          self.y -= p.y - m2.f;
+          if (rotationMode) {
+            self.x = self.y = _round$3(parseFloat(gsCache.rotation));
+          } else {
+            var m = getGlobalMatrix(target),
+                p = innerMatrix.apply({
+              x: self.x - startElementX,
+              y: self.y - startElementY
+            }),
+                m2 = getGlobalMatrix(target.parentNode, true);
+            m2.apply({
+              x: m.e - p.x,
+              y: m.f - p.y
+            }, p);
+            self.x = _round$3(self.x - (p.x - m2.e));
+            self.y = _round$3(self.y - (p.y - m2.f));
+          }
+
           render(true);
           recordStartPositions();
         }
@@ -10161,16 +10344,15 @@
   });
 
   Draggable.zIndex = 1000;
-  Draggable.version = "3.12.7";
+  Draggable.version = "3.15.0";
   _getGSAP$1() && gsap$2.registerPlugin(Draggable);
 
   /*!
-   * CSSRulePlugin 3.12.7
+   * CSSRulePlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$3,
@@ -10211,7 +10393,7 @@
   };
 
   var CSSRulePlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "cssRule",
     init: function init(target, value, tween, index, targets) {
       if (!_checkRegister() || typeof target.cssText === "undefined") {
@@ -10293,12 +10475,11 @@
   _getGSAP$2() && gsap$3.registerPlugin(CSSRulePlugin);
 
   /*!
-   * EaselPlugin 3.12.7
+   * EaselPlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$4,
@@ -10562,7 +10743,7 @@
   };
 
   var EaselPlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "easel",
     init: function init(target, value, tween, index, targets) {
       if (!_coreInitted$4) {
@@ -10632,12 +10813,11 @@
   _getGSAP$3() && gsap$4.registerPlugin(EaselPlugin);
 
   /*!
-   * EasePack 3.12.7
+   * EasePack 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$5,
@@ -10828,18 +11008,17 @@
 
   for (var p in EasePack) {
     EasePack[p].register = _initCore$5;
-    EasePack[p].version = "3.12.7";
+    EasePack[p].version = "3.15.0";
   }
 
   _getGSAP$4() && gsap$5.registerPlugin(SlowMo);
 
   /*!
-   * Flip 3.12.7
+   * Flip 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
 
@@ -11216,6 +11395,8 @@
       x += e - fromState.matrix.e;
       y += f - fromState.matrix.f;
     } else if (deep || parent !== toState.parent) {
+      cache.x = x + "px";
+      cache.y = y + "px";
       cache.renderTransform(1, cache);
       matrix = getGlobalMatrix(fitChild || element, false, false, true);
       fromPoint = parentMatrix.apply({
@@ -11307,6 +11488,15 @@
 
         _bodyLocked = lock;
       }
+    }
+  },
+      _revertTempStyles = function _revertTempStyles(temps, stateIndex) {
+    for (var i = 0; i < temps.length; i += 3) {
+      gsap$6.set(temps[i], {
+        clearProps: true
+      });
+      temps[i].setAttribute("style", temps[i + stateIndex]);
+      temps[i]._gsap.gmCache = -1;
     }
   },
       _fromTo = function _fromTo(fromState, toState, vars, relative) {
@@ -11427,6 +11617,8 @@
 
       _lockBodyScroll(true);
 
+      var recordedStyles = [];
+
       for (i = 0; i < comps.length; i++) {
         comp = comps[i];
         a = comp.a;
@@ -11436,24 +11628,39 @@
           comps.splice(i--, 1);
         } else {
           el = comp.t;
-          nested && !(comp.sd < 0) && i && (a.matrix = getGlobalMatrix(el, false, false, true));
+
+          if (nested && !(comp.sd < 0) && i) {
+            a = comp.a = a.clone({
+              matrix: getGlobalMatrix(el, false, false, true)
+            });
+          }
 
           if (b.isVisible && a.isVisible) {
             if (comp.sd < 0) {
+              nested && _revertTempStyles(recordedStyles, 1);
               state = new ElementState(el, props, fromState.simple);
 
               _fit(state, a, scale, 0, 0, state);
 
               state.matrix = getGlobalMatrix(el, false, false, true);
+              state.bounds = el.getBoundingClientRect();
               state.css = comp.b.css;
               comp.a = a = state;
               fade && (el.style.opacity = interrupted ? b.opacity : a.opacity);
               stagger && swapOutTargets.push(el);
+
+              if (nested) {
+                _revertTempStyles(recordedStyles, 2);
+
+                recordedStyles.push(el, el.getAttribute("style"));
+              }
             } else if (comp.sd > 0 && fade) {
               el.style.opacity = interrupted ? a.opacity - b.opacity : "0";
             }
 
             _fit(a, b, scale, props);
+
+            nested && comp.sd < 0 && recordedStyles.push(el.getAttribute("style"));
           } else if (b.isVisible !== a.isVisible) {
             if (!b.isVisible) {
               a.isVisible && entering.push(a);
@@ -11871,8 +12078,12 @@
 
   var ElementState = function () {
     function ElementState(element, props, simple) {
-      this.element = element;
-      this.update(props, simple);
+      if (element instanceof ElementState) {
+        Object.assign(this, element, props || {});
+      } else {
+        this.element = element;
+        this.update(props, simple);
+      }
     }
 
     var _proto2 = ElementState.prototype;
@@ -11883,6 +12094,10 @@
       return b1.top !== b2.top || b1.left !== b2.left || b1.width !== b2.width || b1.height !== b2.height || !this.matrix.equals(state.matrix) || this.opacity !== state.opacity || this.props && state.props && JSON.stringify(this.props) !== JSON.stringify(state.props);
     };
 
+    _proto2.clone = function clone(overrides) {
+      return new ElementState(this, overrides);
+    };
+
     _proto2.update = function update(props, simple) {
       var self = this,
           element = self.element,
@@ -11891,6 +12106,7 @@
           bounds = element.getBoundingClientRect(),
           bbox = element.getBBox && typeof element.getBBox === "function" && element.nodeName.toLowerCase() !== "svg" && element.getBBox(),
           m = simple ? new Matrix2D(1, 0, 0, 1, bounds.left + _getDocScrollLeft(), bounds.top + _getDocScrollTop()) : getGlobalMatrix(element, false, false, true);
+      cache.uncache = 1;
       self.getProp = getProp;
       self.element = element;
       self.id = _getID(element);
@@ -11901,8 +12117,8 @@
       self.display = getProp("display");
       self.position = getProp("position");
       self.parent = element.parentNode;
-      self.x = getProp("x");
-      self.y = getProp("y");
+      self.x = getProp("x", "px");
+      self.y = getProp("y", "px");
       self.scaleX = cache.scaleX;
       self.scaleY = cache.scaleY;
       self.rotation = getProp("rotation");
@@ -12220,7 +12436,7 @@
       }
 
       absolute && _makeAbsolute(after, before);
-      v = _fit(after, before, scale || fitChild, props, fitChild, v.duration || getVars ? v : 0);
+      v = _fit(after, before, scale || fitChild, !v.duration && props, fitChild, v.duration || getVars ? v : 0);
       typeof vars === "object" && "zIndex" in vars && (v.zIndex = vars.zIndex);
       ctx && !getVars && ctx.add(function () {
         return function () {
@@ -12283,16 +12499,15 @@
 
     return Flip;
   }();
-  Flip.version = "3.12.7";
+  Flip.version = "3.15.0";
   typeof window !== "undefined" && window.gsap && window.gsap.registerPlugin(Flip);
 
   /*!
-   * MotionPathPlugin 3.12.7
+   * MotionPathPlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
 
@@ -12483,7 +12698,7 @@
   };
 
   var MotionPathPlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "motionPath",
     register: function register(core, Plugin, propTween) {
       gsap$7 = core;
@@ -12631,12 +12846,11 @@
   _getGSAP$5() && gsap$7.registerPlugin(MotionPathPlugin);
 
   /*!
-   * Observer 3.12.7
+   * Observer 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$8,
@@ -12748,6 +12962,17 @@
       _getTarget = function _getTarget(t, self) {
     return (self && self._ctx && self._ctx.selector || gsap$8.utils.toArray)(t)[0] || (typeof t === "string" && gsap$8.config().nullTargetWarn !== false ? console.warn("Element not found:", t) : null);
   },
+      _isWithin = function _isWithin(element, list) {
+    var i = list.length;
+
+    while (i--) {
+      if (list[i] === element || list[i].contains(element)) {
+        return true;
+      }
+    }
+
+    return false;
+  },
       _getScrollFunc = function _getScrollFunc(element, _ref) {
     var s = _ref.s,
         sc = _ref.sc;
@@ -12807,7 +13032,7 @@
     };
   },
       _getEvent = function _getEvent(e, preventDefault) {
-    preventDefault && !e._gsapAllow && e.preventDefault();
+    preventDefault && !e._gsapAllow && e.cancelable !== false && e.preventDefault();
     return e.changedTouches ? e.changedTouches[0] : e;
   },
       _getAbsoluteMax = function _getAbsoluteMax(a) {
@@ -12838,12 +13063,10 @@
       setTimeout(function () {
         return _startup = 0;
       }, 500);
-
-      _setScrollTrigger();
-
       _coreInitted$5 = 1;
     }
 
+    ScrollTrigger || _setScrollTrigger();
     return _coreInitted$5;
   };
 
@@ -12937,7 +13160,7 @@
         return onClickTime = _getTime$1();
       },
           _ignoreCheck = function _ignoreCheck(e, isPointerOrTouch) {
-        return (self.event = e) && ignore && ~ignore.indexOf(e.target) || isPointerOrTouch && limitToTouch && e.pointerType !== "touch" || ignoreCheck && ignoreCheck(e, isPointerOrTouch);
+        return (self.event = e) && ignore && _isWithin(e.target, ignore) || isPointerOrTouch && limitToTouch && e.pointerType !== "touch" || ignoreCheck && ignoreCheck(e, isPointerOrTouch);
       },
           onStopFunc = function onStopFunc() {
         self._vx.reset();
@@ -13039,7 +13262,7 @@
         self.y = y;
 
         if (isDragging || (dx || dy) && (Math.abs(self.startX - x) >= dragMinimum || Math.abs(self.startY - y) >= dragMinimum)) {
-          dragged = isDragging ? 2 : 1;
+          dragged || (dragged = isDragging ? 2 : 1);
           isDragging || (self.isDragging = true);
           onTouchOrPointerDelta(dx, dy);
         }
@@ -13281,7 +13504,7 @@
 
     return Observer;
   }();
-  Observer.version = "3.12.7";
+  Observer.version = "3.15.0";
 
   Observer.create = function (vars) {
     return new Observer(vars);
@@ -13302,12 +13525,11 @@
   _getGSAP$6() && gsap$8.registerPlugin(Observer);
 
   /*!
-   * PixiPlugin 3.12.7
+   * PixiPlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$9,
@@ -13397,11 +13619,14 @@
     filter = new filterClass();
 
     if (type === "BlurFilter") {
-      filter.blur = 0;
+      if (_isV8Plus) {
+        filter.strength = 0;
+      } else {
+        filter.blur = 0;
+      }
     }
 
-    filters.push(filter);
-    target.filters = filters;
+    target.filters = [].concat(filters, [filter]);
     return filter;
   },
       _addColorMatrixFilterCacheTween = function _addColorMatrixFilterCacheTween(p, plugin, cache, vars) {
@@ -13676,7 +13901,7 @@
   }
 
   var PixiPlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "pixi",
     register: function register(core, Plugin, propTween) {
       gsap$9 = core;
@@ -13762,12 +13987,11 @@
   _getGSAP$7() && gsap$9.registerPlugin(PixiPlugin);
 
   /*!
-   * ScrollToPlugin 3.12.7
+   * ScrollToPlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$a,
@@ -13885,7 +14109,7 @@
   };
 
   var ScrollToPlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "scrollTo",
     rawVars: 1,
     register: function register(core) {
@@ -14036,12 +14260,11 @@
   _getGSAP$8() && gsap$a.registerPlugin(ScrollToPlugin);
 
   /*!
-   * ScrollTrigger 3.12.7
+   * ScrollTrigger 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
 
@@ -14170,11 +14393,11 @@
       _endAnimation = function _endAnimation(animation, reversed, pause) {
     return animation && animation.progress(reversed ? 0 : 1) && pause && animation.pause();
   },
-      _callback$1 = function _callback(self, func) {
+      _callback$1 = function _callback(self, func, extraParam) {
     if (self.enabled) {
       var result = self._ctx ? self._ctx.add(function () {
-        return func(self);
-      }) : func(self);
+        return func(self, extraParam);
+      }) : func(self, extraParam);
       result && result.totalTime && (self.callbackAnimation = result);
     }
   },
@@ -14195,7 +14418,7 @@
       _Height = "Height",
       _px = "px",
       _getComputedStyle$1 = function _getComputedStyle(element) {
-    return _win$6.getComputedStyle(element);
+    return _win$6.getComputedStyle(element.nodeType === Node.DOCUMENT_NODE ? element.scrollingElement : element);
   },
       _makePositionable = function _makePositionable(element) {
     var position = _getComputedStyle$1(element).position;
@@ -14222,7 +14445,7 @@
       skewX: 0,
       skewY: 0
     }).progress(1),
-        bounds = element.getBoundingClientRect();
+        bounds = element.getBoundingClientRect ? element.getBoundingClientRect() : element.scrollingElement.getBoundingClientRect();
     tween && tween.progress(0).kill();
     return bounds;
   },
@@ -14364,7 +14587,7 @@
     var e = _doc$6.createElement("div"),
         useFixedPosition = _isViewport$1(container) || _getProxyProp(container, "pinType") === "fixed",
         isScroller = type.indexOf("scroller") !== -1,
-        parent = useFixedPosition ? _body$5 : container,
+        parent = useFixedPosition ? _body$5 : container.tagName === "IFRAME" ? container.contentDocument.body : container,
         isStart = type.indexOf("start") !== -1,
         color = isStart ? startColor : endColor,
         css = "border-color:" + color + ";font-size:" + fontSize + ";color:" + color + ";font-weight:" + fontWeight + ";pointer-events:none;white-space:nowrap;font-family:sans-serif,Arial;z-index:1000;padding:4px 8px;border-width:0;border-style:solid;";
@@ -14445,6 +14668,11 @@
       }
     }
   },
+      _recordScrollPositions = function _recordScrollPositions() {
+    return exports._scrollers.forEach(function (obj) {
+      return _isFunction$4(obj) && ++obj.cacheID && (obj.rec = obj());
+    });
+  },
       _revertAll = function _revertAll(kill, media) {
     var trigger;
 
@@ -14508,10 +14736,7 @@
     _refresh100vh();
 
     _refreshingAll = ScrollTrigger$2.isRefreshing = true;
-
-    exports._scrollers.forEach(function (obj) {
-      return _isFunction$4(obj) && ++obj.cacheID && (obj.rec = obj());
-    });
+    _isReverted || _recordScrollPositions();
 
     var refreshInits = _dispatch$1("refreshInit");
 
@@ -15123,7 +15348,7 @@
                 ease: snap.ease || "power3",
                 data: _abs$1(endScroll - scroll),
                 onInterrupt: function onInterrupt() {
-                  return snapDelayedCall.restart(true) && _onInterrupt && _onInterrupt(self);
+                  return snapDelayedCall.restart(true) && _onInterrupt && _callback$1(self, _onInterrupt);
                 },
                 onComplete: function onComplete() {
                   self.update();
@@ -15135,10 +15360,10 @@
 
                   snap1 = snap2 = animation && !isToggle ? animation.totalProgress() : self.progress;
                   onSnapComplete && onSnapComplete(self);
-                  _onComplete && _onComplete(self);
+                  _onComplete && _callback$1(self, _onComplete);
                 }
               }, scroll, change1 * change, endScroll - scroll - change1 * change);
-              onStart && onStart(self, tweenTo.tween);
+              onStart && _callback$1(self, onStart, tweenTo.tween);
             }
           } else if (self.isActive && lastSnap !== scroll) {
             snapDelayedCall.restart(true);
@@ -15289,16 +15514,23 @@
         }
 
         scrubTween && scrubTween.pause();
-        invalidateOnRefresh && animation && animation.revert({
-          kill: false
-        }).invalidate();
+
+        if (invalidateOnRefresh && animation) {
+          animation.revert({
+            kill: false
+          }).invalidate();
+          animation.getChildren ? animation.getChildren(true, true, false).forEach(function (t) {
+            return t.vars.immediateRender && t.render(0, true, true);
+          }) : animation.vars.immediateRender && animation.render(0, true, true);
+        }
+
         self.isReverted || self.revert(true, true);
         self._subPinOffset = false;
 
         var size = getScrollerSize(),
             scrollerBounds = getScrollerOffsets(),
             max = containerAnimation ? containerAnimation.duration() : _maxScroll(scroller, direction),
-            isFirstRefresh = change <= 0.01,
+            isFirstRefresh = change <= 0.01 || !change,
             offset = 0,
             otherPinOffset = pinOffset || 0,
             parsedEnd = _isObject$2(position) ? position.end : vars.end,
@@ -15364,7 +15596,7 @@
         i = triggerIndex;
 
         while (i--) {
-          curTrigger = _triggers[i];
+          curTrigger = _triggers[i] || {};
           curPin = curTrigger.pin;
 
           if (curPin && curTrigger.start - curTrigger._pinPush <= start && !containerAnimation && curTrigger.end > 0) {
@@ -15527,7 +15759,7 @@
         animation && isToggle && (animation._initted || prevAnimProgress) && animation.progress() !== prevAnimProgress && animation.progress(prevAnimProgress || 0, true).render(animation.time(), true, true);
 
         if (isFirstRefresh || prevProgress !== self.progress || containerAnimation || invalidateOnRefresh || animation && !animation._initted) {
-          animation && !isToggle && animation.totalProgress(containerAnimation && start < -0.001 && !prevProgress ? gsap$b.utils.normalize(start, end, 0) : prevProgress, true);
+          animation && !isToggle && (animation._initted || prevProgress || animation.vars.immediateRender !== false) && animation.totalProgress(containerAnimation && start < -0.001 && !prevProgress ? gsap$b.utils.normalize(start, end, 0) : prevProgress, true);
           self.progress = isFirstRefresh || (scroll1 - start) / change === prevProgress ? 0 : prevProgress;
         }
 
@@ -15783,8 +16015,9 @@
       };
 
       self.disable = function (reset, allowAnimation) {
+        reset !== false && self.revert(true, true);
+
         if (self.enabled) {
-          reset !== false && self.revert(true, true);
           self.enabled = self.isActive = false;
           allowAnimation || scrubTween && scrubTween.pause();
           prevScroll = 0;
@@ -15979,7 +16212,9 @@
             };
 
             gsap$b.addEventListener("matchMediaInit", function () {
-              return _revertAll();
+              _recordScrollPositions();
+
+              _revertAll();
             });
             gsap$b.addEventListener("matchMediaRevert", function () {
               return _revertRecorded();
@@ -16068,6 +16303,14 @@
 
             _wheelListener(_removeListener$2, exports._scrollers[i], exports._scrollers[i + 2]);
           }
+        } else if (_doc$6) {
+          var onLoad = function onLoad() {
+            ScrollTrigger.enable();
+
+            _doc$6.removeEventListener("DOMContentLoaded", onLoad);
+          };
+
+          _doc$6.addEventListener("DOMContentLoaded", onLoad);
         }
       }
     };
@@ -16134,7 +16377,7 @@
 
     return ScrollTrigger;
   }();
-  ScrollTrigger$2.version = "3.12.7";
+  ScrollTrigger$2.version = "3.15.0";
 
   ScrollTrigger$2.saveStyles = function (targets) {
     return targets ? _toArray$4(targets).forEach(function (target) {
@@ -16670,12 +16913,11 @@
   }
 
   /*!
-   * TextPlugin 3.12.7
+   * TextPlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
 
@@ -16686,7 +16928,7 @@
   };
 
   var TextPlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "text",
     init: function init(target, value, tween) {
       typeof value !== "object" && (value = {
@@ -16831,12 +17073,11 @@
   _getGSAP$a() && gsap$c.registerPlugin(TextPlugin);
 
   /*!
-   * DrawSVGPlugin 3.12.7
+   * DrawSVGPlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$d,
@@ -17021,7 +17262,7 @@
   };
 
   var DrawSVGPlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "drawSVG",
     register: function register(core) {
       gsap$d = core;
@@ -17116,9 +17357,9 @@
           dash = data._dash || ratio && ratio !== 1 && 0.0001 || 0;
           length = data._length - dash + 0.1;
           offset = data._offset;
-          dash && offset && dash + Math.abs(offset % data._length) > data._length - 0.2 && (offset += offset < 0 ? 0.1 : -0.1) && (length += 0.1);
+          dash && offset && dash + Math.abs(offset % data._length) > data._length - 0.05 && (offset += offset < 0 ? 0.005 : -0.005) && (length += 0.005);
           style.strokeDashoffset = dash ? offset : offset + 0.001;
-          style.strokeDasharray = length < 0.2 ? "none" : dash ? dash + "px," + (data._nowrap ? 999999 : length) + "px" : "0px, 999999px";
+          style.strokeDasharray = length < 0.1 ? "none" : dash ? dash + "px," + (data._nowrap ? 999999 : length) + "px" : "0px, 999999px";
         }
       } else {
         data.styles.revert();
@@ -17130,12 +17371,11 @@
   _getGSAP$b() && gsap$d.registerPlugin(DrawSVGPlugin);
 
   /*!
-   * Physics2DPlugin 3.12.7
+   * Physics2DPlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$e,
@@ -17182,7 +17422,7 @@
   };
 
   var Physics2DPlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "physics2D",
     register: _initCore$a,
     init: function init(target, value, tween) {
@@ -17286,12 +17526,11 @@
   _getGSAP$c() && gsap$e.registerPlugin(Physics2DPlugin);
 
   /*!
-   * PhysicsPropsPlugin 3.12.7
+   * PhysicsPropsPlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$f,
@@ -17339,7 +17578,7 @@
   };
 
   var PhysicsPropsPlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "physicsProps",
     register: _initCore$b,
     init: function init(target, value, tween) {
@@ -17441,12 +17680,11 @@
   _getGSAP$d() && gsap$f.registerPlugin(PhysicsPropsPlugin);
 
   /*!
-   * ScrambleTextPlugin 3.12.7
+   * ScrambleTextPlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
 
@@ -17503,7 +17741,7 @@
   };
 
   var ScrambleTextPlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "scrambleText",
     register: function register(core, Plugin, propTween) {
       gsap$g = core;
@@ -17687,12 +17925,11 @@
   _getGSAP$e() && gsap$g.registerPlugin(ScrambleTextPlugin);
 
   /*!
-   * CustomBounce 3.12.7
+   * CustomBounce 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$h,
@@ -17841,15 +18078,14 @@
     return CustomBounce;
   }();
   _getGSAP$f() && gsap$h.registerPlugin(CustomBounce);
-  CustomBounce.version = "3.12.7";
+  CustomBounce.version = "3.15.0";
 
   /*!
-   * CustomWiggle 3.12.7
+   * CustomWiggle 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$i,
@@ -17997,15 +18233,14 @@
     return CustomWiggle;
   }();
   _getGSAP$g() && gsap$i.registerPlugin(CustomWiggle);
-  CustomWiggle.version = "3.12.7";
+  CustomWiggle.version = "3.15.0";
 
   /*!
-   * GSDevTools 3.12.7
+   * GSDevTools 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
 
@@ -18175,7 +18410,7 @@
       _addedCSS,
       _createRootElement = function _createRootElement(element, minimal, css) {
     if (!_addedCSS) {
-      _createElement$2("style", _docEl$3).innerHTML = '.gs-dev-tools{height:51px;bottom:0;left:0;right:0;display:block;position:fixed;overflow:visible;padding:0}.gs-dev-tools *{box-sizing:content-box;visibility:visible}.gs-dev-tools .gs-top{position:relative;z-index:499}.gs-dev-tools .gs-bottom{display:flex;align-items:center;justify-content:space-between;background-color:rgba(0,0,0,.6);height:42px;border-top:1px solid #999;position:relative}.gs-dev-tools .timeline{position:relative;height:8px;margin-left:15px;margin-right:15px;overflow:visible}.gs-dev-tools .progress-bar,.gs-dev-tools .timeline-track{height:8px;width:100%;position:absolute;top:0;left:0}.gs-dev-tools .timeline-track{background-color:#999;opacity:.6}.gs-dev-tools .progress-bar{background-color:#91e600;height:8px;top:0;width:0;pointer-events:none}.gs-dev-tools .seek-bar{width:100%;position:absolute;height:24px;top:-12px;left:0;background-color:transparent}.gs-dev-tools .in-point,.gs-dev-tools .out-point{width:15px;height:26px;position:absolute;top:-18px}.gs-dev-tools .in-point-shape{fill:#6d9900;stroke:rgba(0,0,0,.5);stroke-width:1}.gs-dev-tools .out-point-shape{fill:#994242;stroke:rgba(0,0,0,.5);stroke-width:1}.gs-dev-tools .in-point{transform:translateX(-100%)}.gs-dev-tools .out-point{left:100%}.gs-dev-tools .grab{stroke:rgba(255,255,255,.3);stroke-width:1}.gs-dev-tools .playhead{position:absolute;top:-5px;transform:translate(-50%,0);left:0;border-radius:50%;width:16px;height:16px;border:1px solid #6d9900;background-color:#91e600}.gs-dev-tools .gs-btn-white{fill:#fff}.gs-dev-tools .pause{opacity:0}.gs-dev-tools .select-animation{vertical-align:middle;position:relative;padding:6px 10px}.gs-dev-tools .select-animation-container{flex-grow:4;width:40%}.gs-dev-tools .select-arrow{display:inline-block;width:12px;height:7px;margin:0 7px;transform:translate(0,-2px)}.gs-dev-tools .select-arrow-shape{stroke:rgba(255,255,255,.6);stroke-width:2px;fill:none}.gs-dev-tools .rewind{height:16px;width:19px;padding:10px 4px;min-width:24px}.gs-dev-tools .rewind-path{opacity:.6}.gs-dev-tools .play-pause{width:24px;height:24px;padding:6px 10px;min-width:24px}.gs-dev-tools .ease{width:30px;height:30px;padding:10px;min-width:30px;display:none}.gs-dev-tools .ease-path{fill:none;stroke:rgba(255,255,255,.6);stroke-width:2px}.gs-dev-tools .ease-border{fill:rgba(255,255,255,.25)}.gs-dev-tools .time-scale{font-family:monospace;font-size:18px;text-align:center;color:rgba(255,255,255,.6);padding:4px 4px 4px 0;min-width:30px;margin-left:7px}.gs-dev-tools .loop{width:20px;padding:5px;min-width:20px}.gs-dev-tools .loop-path{fill:rgba(255,255,255,.6)}.gs-dev-tools label span{color:#fff;font-family:monospace;text-decoration:none;font-size:16px;line-height:18px}.gs-dev-tools .time-scale span{color:rgba(255,255,255,.6)}.gs-dev-tools button:focus,.gs-dev-tools select:focus{outline:0}.gs-dev-tools label{position:relative;cursor:pointer}.gs-dev-tools label.locked{text-decoration:none;cursor:auto}.gs-dev-tools label input,.gs-dev-tools label select{position:absolute;left:0;top:0;z-index:1;font:inherit;font-size:inherit;line-height:inherit;height:100%;width:100%;color:#000!important;opacity:0;background:0 0;border:none;padding:0;margin:0;-webkit-appearance:none;-moz-appearance:none;appearance:none;cursor:pointer}.gs-dev-tools label input+.display{position:relative;z-index:2}.gs-dev-tools .gs-bottom-right{vertical-align:middle;display:flex;align-items:center;flex-grow:4;width:40%;justify-content:flex-end}.gs-dev-tools .time-container{font-size:18px;font-family:monospace;color:rgba(255,255,255,.6);margin:0 5px}.gs-dev-tools .logo{width:32px;height:32px;position:relative;top:2px;margin:0 12px}.gs-dev-tools .gs-hit-area{background-color:transparent;width:100%;height:100%;top:0;position:absolute}.gs-dev-tools.minimal{height:auto;display:flex;align-items:stretch}.gs-dev-tools.minimal .gs-top{order:2;flex-grow:4;background-color:rgba(0,0,0,1)}.gs-dev-tools.minimal .gs-bottom{background-color:rgba(0,0,0,1);border-top:none}.gs-dev-tools.minimal .timeline{top:50%;transform:translate(0,-50%)}.gs-dev-tools.minimal .in-point,.gs-dev-tools.minimal .out-point{display:none}.gs-dev-tools.minimal .select-animation-container{display:none}.gs-dev-tools.minimal .rewind{display:none}.gs-dev-tools.minimal .play-pause{width:20px;height:20px;padding:4px 6px;margin-left:14px}.gs-dev-tools.minimal .time-scale{min-width:26px}.gs-dev-tools.minimal .loop{width:18px;min-width:18px;display:none}.gs-dev-tools.minimal .gs-bottom-right{display:none}@media only screen and (max-width:600px){.gs-dev-tools{height:auto;display:flex;align-items:stretch}.gs-dev-tools .gs-top{order:2;flex-grow:4;background-color:rgba(0,0,0,1);height:42px}.gs-dev-tools .gs-bottom{background-color:rgba(0,0,0,1);border-top:none}.gs-dev-tools .timeline{top:50%;transform:translate(0,-50%)}.gs-dev-tools .in-point,.gs-dev-tools .out-point{display:none}.gs-dev-tools .select-animation-container{display:none}.gs-dev-tools .rewind{display:none}.gs-dev-tools .play-pause{width:20px;height:20px;padding:4px 6px;margin-left:14px}.gs-dev-tools .time-scale{min-width:26px}.gs-dev-tools .loop{width:18px;min-width:18px;display:none}.gs-dev-tools .gs-bottom-right{display:none}}';
+      _createElement$2("style", _docEl$3).innerHTML = '.gs-dev-tools{height:51px;bottom:0;left:0;right:0;display:block;position:fixed;overflow:visible;padding:0;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,avenir next,sans-serif;color:#bbbaa6}.gs-dev-tools *{box-sizing:content-box;visibility:visible}.gs-dev-tools .gs-top{position:relative;z-index:499}.gs-dev-tools .gs-bottom{display:flex;align-items:center;justify-content:space-between;gap:1rem;background-color:#0e100f;height:42px;position:relative}.gs-dev-tools .timeline{position:relative;height:8px;margin-left:15px;margin-right:15px;overflow:visible}.gs-dev-tools .progress-bar,.gs-dev-tools .timeline-track{height:8px;width:100%;position:absolute;top:0;left:0;}.gs-dev-tools .timeline-track{background-color:#222}.gs-dev-tools .progress-bar{background:linear-gradient(114.41deg,#0ae448 20.74%,#abff84 65.5%);height:8px;top:0;width:0;pointer-events:none}.gs-dev-tools .seek-bar{width:100%;position:absolute;height:24px;top:-12px;left:0;background-color:transparent}.gs-dev-tools .in-point,.gs-dev-tools .out-point{width:15px;height:26px;position:absolute;top:-18px}.gs-dev-tools .in-point-shape{fill:#0ae448;transform:translateX(1px)}.gs-dev-tools .out-point-shape{fill:#ff8709}.gs-dev-tools .in-point{transform:translateX(-100%)}.gs-dev-tools .out-point{left:100%}.gs-dev-tools .playhead{position:absolute;top:-5px;transform:translate(-50%,0);left:0;border-radius:50%;width:16px;height:16px;background:linear-gradient(114.41deg,#0ae448 20.74%,#abff84 65.5%)}.gs-dev-tools .gs-btn-white{fill:#fffce1}.gs-dev-tools .pause{opacity:0}.gs-dev-tools .select-animation{vertical-align:middle;position:relative;padding:6px 10px}.gs-dev-tools .select-animation-container{flex-grow:4;width:40%}.gs-dev-tools .select-arrow{display:inline-block;width:12px;height:7px;margin:0 7px;transform:translate(0,-2px)}.gs-dev-tools .select-arrow-shape{stroke:currentcolor;stroke-width:2px;fill:none}.gs-dev-tools .rewind{height:14px}.gs-dev-tools .ease-border,.gs-dev-tools .rewind-path{fill:currentColor}.gs-dev-tools .play-pause{width:18px;height:18px}.gs-dev-tools .ease{width:20px;height:20px;min-width:30px;display:none}.gs-dev-tools .ease-path{fill:none;stroke:#abff84;stroke-width:2px}.gs-dev-tools .time-scale{text-align:center;min-width:30px}.gs-dev-tools .loop{width:15px}.gs-dev-tools label span{text-decoration:none}.gs-dev-tools button:focus,.gs-dev-tools select:focus{outline:0}.gs-dev-tools label{position:relative;cursor:pointer}.gs-dev-tools label.locked{text-decoration:none;cursor:auto}.gs-dev-tools label input,.gs-dev-tools label select{position:absolute;left:0;top:0;z-index:1;font:inherit;font-size:inherit;line-height:inherit;height:100%;width:100%;color:#000!important;opacity:0;background:0 0;border:none;padding:0;margin:0;-webkit-appearance:none;-moz-appearance:none;appearance:none;cursor:pointer}.gs-dev-tools label input+.display{position:relative;z-index:2}.gs-dev-tools .gs-bottom-right{vertical-align:middle;display:flex;align-items:center;flex-grow:4;width:40%;justify-content:flex-end}.gs-dev-tools .time-container{margin:0 5px}.gs-dev-tools .logo{width:32px;height:32px;position:relative;top:2px;margin:0 12px}.gs-dev-tools .gs-hit-area{background-color:transparent;width:100%;height:100%;top:0;position:absolute}.gs-dev-tools.minimal{border-top: 1px #222222 solid;height:auto;display:flex;align-items:stretch}.gs-dev-tools.minimal .gs-top{order:2;flex-grow:4;background-color:#0e100f}.gs-dev-tools.minimal .gs-bottom{background-color:#0e100f;border-top:none}.gs-dev-tools.minimal .timeline{top:50%;transform:translate(0,-50%)}.gs-dev-tools.minimal .gs-bottom-right,.gs-dev-tools.minimal .in-point,.gs-dev-tools.minimal .out-point,.gs-dev-tools.minimal .rewind,.gs-dev-tools.minimal .select-animation-container{display:none}.gs-dev-tools.minimal .play-pause{width:20px;height:20px;padding:4px 6px;margin-left:14px}.gs-dev-tools.minimal .time-scale{min-width:26px}.gs-dev-tools.minimal .loop{width:18px;min-width:18px;display:none}@media only screen and (max-width:600px){.gs-dev-tools{height:auto;display:flex;align-items:stretch}.gs-dev-tools .gs-top{order:2;flex-grow:4;background-color:#0e100f;height:42px}.gs-dev-tools .gs-bottom{background-color:#0e100f;border-top:none}.gs-dev-tools .timeline{top:50%;transform:translate(0,-50%)}.gs-dev-tools .gs-bottom-right,.gs-dev-tools .in-point,.gs-dev-tools .out-point,.gs-dev-tools .rewind,.gs-dev-tools .select-animation-container{display:none}.gs-dev-tools .play-pause{width:18px;height:18px;padding:4px 6px;margin-left:14px}.gs-dev-tools .time-scale{min-width:26px}.gs-dev-tools .loop{width:18px;min-width:18px;display:none}.gs-dev-tools .progress-bar,.gs-dev-tools .timeline-track{right:0}}';
       _addedCSS = true;
     }
 
@@ -18186,7 +18421,7 @@
     var root = _createElement$2("div", element || _docEl$3.getElementsByTagName("body")[0] || _docEl$3);
 
     root.setAttribute("class", "gs-dev-tools" + (minimal ? " minimal" : ""));
-    root.innerHTML = '<div class=gs-hit-area></div><div class=gs-top><div class=timeline><div class=timeline-track></div><div class=progress-bar></div><div class=seek-bar></div><svg class=in-point viewBox="0 0 15 26" xmlns=http://www.w3.org/2000/svg><polygon class=in-point-shape points=".5 .5 14.5 .5 14.5 25.5 .5 17.5"/><polyline class=grab points="5.5 4 5.5 15"/><polyline class=grab points="9.5 4 9.5 17"/></svg><svg class=out-point viewBox="0 0 15 26" xmlns=http://www.w3.org/2000/svg><polygon class=out-point-shape points=".5 .5 14.5 .5 14.5 17.5 .5 25.5"/><polyline class=grab points="5.5 4 5.5 17"/><polyline class=grab points="9.5 4 9.5 15"/></svg><div class=playhead></div></div></div><div class=gs-bottom><div class=select-animation-container><label class=select-animation><select class=animation-list><option>Global Timeline<option>myTimeline</select><nobr><span class="display animation-label">Global Timeline</span><svg class=select-arrow viewBox="0 0 12.05 6.73" xmlns=http://www.w3.org/2000/svg><polyline class=select-arrow-shape points="0.35 0.35 6.03 6.03 11.7 0.35"/></svg></nobr></label></div><svg class=rewind viewBox="0 0 12 15.38" xmlns=http://www.w3.org/2000/svg><path d=M0,.38H2v15H0Zm2,7,10,7.36V0Z class="gs-btn-white rewind-path"/></svg><svg class=play-pause viewBox="0 0 20.97 25.67" xmlns=http://www.w3.org/2000/svg><g class=play><path d="M8,4.88 C8,10.18 8,15.48 8,20.79 5.33,22.41 2.66,24.04 0,25.67 0,17.11 0,8.55 0,0 2.66,1.62 5.33,3.25 8,4.88" class="gs-btn-white play-1" style=stroke:#fff;stroke-width:.6px /><path d="M14.485,8.855 C16.64,10.18 18.8,11.5 20.97,12.83 16.64,15.48 12.32,18.13 8,20.79 8,15.48 8,10.18 8,4.88 10.16,6.2 12.32,7.53 14.48,8.85" class="gs-btn-white play-2" style=stroke:#fff;stroke-width:.6px /></g></svg> <svg class=loop viewBox="0 0 29 25.38" xmlns=http://www.w3.org/2000/svg><path d=M27.44,5.44,20.19,0V3.06H9.06A9.31,9.31,0,0,0,0,12.41,9.74,9.74,0,0,0,.69,16l3.06-2.23a6,6,0,0,1-.12-1.22,5.49,5.49,0,0,1,5.43-5.5H20.19v3.81Z class=loop-path /><path d=M25.25,11.54a5.18,5.18,0,0,1,.12,1.12,5.41,5.41,0,0,1-5.43,5.41H9.19V14.5L1.94,19.94l7.25,5.44V22.06H19.94A9.2,9.2,0,0,0,29,12.84a9.42,9.42,0,0,0-.68-3.53Z class=loop-path /></svg> <svg class=ease viewBox="0 0 25.67 25.67" xmlns=http://www.w3.org/2000/svg><path d=M.48,25.12c1.74-3.57,4.28-12.6,8.8-10.7s4.75,1.43,6.5-1.11S19.89,1.19,25.2.55 class=ease-path /><path d=M24.67,1V24.67H1V1H24.67m1-1H0V25.67H25.67V0Z class=ease-border /></svg><label class=time-scale><select><option value=10>10x<option value=5>5x<option value=2>2x<option value=1 selected>1x<option value=0.5>0.5x<option value=0.25>0.25x<option value=0.1>0.1x</select><span class="display time-scale-label">1x</span></label><div class=gs-bottom-right><div class=time-container><span class=time>0.00</span> / <span class=duration>0.00</span></div><a href="https://gsap.com/docs/v3/Plugins/GSDevTools?source=GSDevTools" target=_blank title=Docs><svg class=logo viewBox="0 0 100 100" xmlns=http://www.w3.org/2000/svg><path d="M60 15.4c-.3-.4-.5-.6-.5-.7.1-.6.2-1 .2-1.7v-.4c.6.6 1.3 1.3 1.8 1.7.2.2.5.3.8.3.2 0 .3 0 .5.1h1.6c.8 0 1.6.1 2 0 .1 0 .2 0 .3-.1.6-.3 1.4-1 2.1-1.6 0 .6.1 1.2.1 1.7v1.5c0 .3 0 .5.1.7-.1.1-.2.1-.4.2-.7.4-1.7 1-2.3.9-.5-.1-1.5-.3-2.6-.7-1.2-.3-2.4-.8-3.2-1.2 0 0-.1 0-.1-.1s-.2-.4-.4-.6zm24.6 21.9c-.5-1.7-1.9-2-4.2-.7.9-1.5 2.1-1.5 2.3-2.1.9-2.5-.6-4.6-1.2-5.3.7-1.8 1.4-4.5-1-6.8-1-1-2.4-1.2-3.6-1.1 1.8 1.7 3.4 4.4 2.5 7.2-.1.3-.9.7-1.7 1 0 0 .4 2-.3 3.5-.3.6-.8 1.5-1.3 2.6 1 .9 1.6 1 3 1.3-.9.1-1.2.4-1.2.5-.7 3 1 3.4 1.4 4.8 0 .1 0 .2.1.3v.4c-.3.3-1.4.5-2.5.5s-1.8 1-1.8 1c-.2.1-.3.3-.4.4v1c0 .1 0 .4.1.6.1.5.3 1.3.4 1.8.9.6 1.4.9 2.2 1.1.5.1 1 .2 1.5.1.3-.1.7-.3 1-.7 1.5-1.7 1.9-3.2 2.2-4.1 0-.1 0-.2.1-.2 0 .1.1.1.1.2 0 0 .1-.1.1-.2l.1-.1c1.3-1.6 2.9-4.5 2.1-7zM74.3 49.9c-.1-.3-.1-.7-.2-1.1v-.2c-.1-.2-.1-.4-.2-.6 0-.1-.1-.3-.1-.5s-.1-.5-.1-.7v-.1c0-.2-.1-.5-.1-.7-.1-.3-.1-.7-.2-1.1v-.1c0-.2 0-.3-.1-.5v-.9c0-.1 0-.2.1-.3V43h-.3c-1.1.1-3.8.4-6.7.2-1.2-.1-2.4-.3-3.6-.6-1-.3-1.8-.5-2.3-.7-1.2-.4-1.6-.6-1.8-.7 0 .2-.1.4-.1.7 0 .3-.1.5-.1.8-.1.2-.1.4-.2.6l.1.1c.5.5 1.5 1.3 1.5 2.1v.2c-.1.4-.4.5-.8.9-.1.1-.6.7-1.1 1.1l-.6.6c-.1 0-.1.1-.2.1-.1.1-.3.2-.4.3-.2.1-.7.5-.8.6-.1.1-.2.1-.3.1-2.8 8.8-2.2 13.5-1.5 16.1.1.5.3 1 .4 1.3-.4.5-.8 1-1.2 1.4-1.2 1.5-2 2.6-2.6 4.2 0 .1 0 .1-.1.2 0 .1 0 .2-.1.2-.2.5-.3 1-.4 1.5-.6 2.3-.8 4.5-.9 6.6-.1 2.4-.2 4.6-.5 6.9.7.3 3.1.9 4.7.6.2-.1 0-3.9.6-5.7l.6-1.5c.4-.9.9-1.9 1.3-3.1.3-.7.5-1.5.7-2.4.1-.5.2-1 .3-1.6V74v-.1c.1-.6.1-1.3.1-2 0-.2-.7.3-1.1.9.3-1.8 1.3-2.1 2-3.2.3-.5.6-1.1.6-2 2.5-1.7 4-3.7 5-5.7.2-.4.4-.9.6-1.4.3-.8.5-1.6.7-2.4.3-1.4.8-3.2 1.2-4.8v-.1c.4-1.2.8-2.2 1.2-2.6-.2.9-.4 1.7-.6 2.5v.2c-.6 3.5-.7 6.2-2 9.2 1 2.6 1.9 3.9 2 7.6-2 0-3.2 1.6-3.7 3.2 1.2.3 3.9.7 8.3.1h.3c.1-.5.3-1.1.5-1.5.3-.8.5-1.5.6-2.2.2-1.3.1-2.4 0-3.2 3.9-3.7 2.6-11 1.6-16.6zm.3-15.1c.1-.3.2-.6.4-.8.2-.3.3-.7.5-1 .1-.3.3-.6.4-.9.5-1.5.4-2.8.3-3.5-.1 0-.1-.1-.2-.1-.5-.2-.9-.4-1.4-.6-.1 0-.2-.1-.3-.1-3.8-1.2-7.9-.9-11.9.1-1 .2-1.9.5-2.9.1-2.3-.8-3.9-1.9-4.6-2.8l-.2-.2c-.1.2-.2.4-.4.6.2 2.3-.5 3.9-1.4 5.1.9 1.2 2.6 2.8 3.6 3.4 1.1.6 1.7.7 3.4.4-.6.7-1.1 1-1.9 1.4.1.7.2 2 .5 3.4.3.3 1.2.8 2.3 1.3.5.3 1.1.5 1.7.7.8.3 1.7.6 2.4.8.1 0 .2.1.3.1.5.1 1.1.2 1.8.2h.9c2.1 0 4.5-.2 5.4-.3h.1c-.1-2.7.2-4.6.7-6.2.2-.3.4-.7.5-1.1zm-23.2 9.3v.2c-.3 1.7.5 2.4 1.9 3.4.6.5 0 .5.5.8.3.2.7.3 1 .3.3 0 .5 0 .8-.1.2-.1.4-.3.6-.5.1-.1.3-.2.5-.4.3-.2.6-.5.7-.6.1-.1.2-.1.3-.2.2-.2.5-.5.6-.7.2-.2.4-.5.5-.7 0-.1.1-.1.1-.1v-.1c.1-.4-.3-.8-.8-1.3-.2-.2-.4-.3-.5-.5-.3-.3-.6-.5-1-.7-.9-.5-1.9-.7-3-.7l-.3-.3c-2.2-2.5-3.2-4.8-3.9-6.5-.9-2.1-1.9-3.3-3.9-4.9 1 .4 1.8.8 2.3 1.1.5.4 1.3.4 1.9.2.2-.1.5-.2.7-.3.2-.1.4-.2.6-.4 1.6-1.3 2.5-3.8 2.6-5.6v-.1c.2-.3.6-1.1.8-1.4l.1.1c.1.1.3.2.6.5.1 0 .1.1.2.1.1.1.2.1.2.2.8.6 1.9 1.3 2.6 1.7 1.4.7 2.3.7 5.3-.1 2.2-.6 4.8-.8 6.8-.8 1.4 0 2.7.3 4 .7.2.1.4.1.5.2.3.1.6.2.9.4 0 0 .1 0 .1.1.8.4 2.1 1.2 2.5-.3.1-2-.6-3.9-1.6-5.3 0 0-.1 0-.1-.1-.1-.1-.2-.2-.4-.3-.1-.1-.2-.1-.3-.2-.1-.1-.2-.2-.4-.2-.6-.4-1.2-.8-1.6-.9-.1-.1-.3-.1-.4-.2h-.1-.1c-.1 0-.3-.1-.4-.1-.1 0-.1 0-.2-.1h-.1l-.2-.4c-.2-.1-.4-.2-.5-.2h-.6c-.3 0-.5.1-.7.1-.7.1-1.2.3-1.7.4-.2 0-.3.1-.5.1-.5.1-1 .2-1.6.2-.4 0-.9-.1-1.5-.2-.4-.1-.8-.2-1.1-.3-.2-.1-.4-.1-.6-.2-.6-.2-1.1-.3-1.7-.4h-.2-1.8c-.3 0-.6.1-1 .1H57.9c-.8 0-1.5 0-2.3-.1-.2 0-.5-.1-.7-.1-.5-.1-.9-.2-1.3-.4-.2-.1-.3-.1-.4-.2-.1 0-.2 0-.2-.1-.3-.1-.6-.1-.9-.1H51h-.1c-.4 0-.9.1-1.4.2-1.1.2-2.1.6-3 1.3-.3.2-.6.5-.8.8-.1.1-.2.2-.2.3-.4.6-.8 1.2-.9 2 0 .2-.1.4-.1.6 0 .2 1.7.7 2.3 2.8-.8-1.2-2.3-2.5-4.1-1.4-1.5 1-1.1 3.1-2.4 5.4-.3.5-.6.9-1 1.4-.8 1-.7 2.1.2 4.4 1.4 3.4 7.6 5.3 11.5 8.3l.4.4zm8.7-36.3c0 .6.1 1 .2 1.6v.1c0 .3.1.6.1.9.1 1.2.4 2 1 2.9 0 .1.1.1.1.2.3.2.5.3.8.4 1.1.2 3.1.3 4.2 0 .2-.1.5-.3.7-.5.4-.4.7-1.1.9-1.7.1-.7.3-1.3.4-1.8 0-.2.1-.4.1-.5v-.1c0-.2 0-.3.1-.5.2-.7.2-2.4.3-2.8.1-.7 0-1.8-.1-2.5 0-.2-.1-.4-.1-.5v-.1c-.2-.5-1.4-1.4-4.3-1.4-3.1 0-4 1-4.1 1.5v.1c0 .1 0 .3-.1.5-.1.4-.2 1.4-.2 1.9v2.3zm-6 88.6c0-.1-.1-.2-.1-.3-.7-1.5-1.1-3.5-1.3-4.6.4.1.7.6.8.3.2-.5-.4-1.5-.5-2.2v-.1c-.5-.5-4-.5-3.7-.3-.4.8-1 .6-1.3 2.1-.1.7.8.1 1.7.1-1.4.9-3 2.1-3.4 3.2-.1.1-.1.2-.1.3 0 .2-.1.4-.1.5-.1 1.2.5 1.6 2 2.4H48.4c1.4.3 3 .3 4.3.3 1.2-.2 1.6-.7 1.6-1.4-.2-.1-.2-.2-.2-.3z" style=fill:#efefef /><path d="M56.1 36.5c.3 1.4.5 2.4.8 4.2h-.2c-.1.5-.1.9-.1 1.3-1-.4-2.2-.5-2.6-.5-3.7-4.4-2.9-6.1-4.4-8.3.4-.2 1-.4 1.5-.8 1.6 1.9 3.3 3 5 4.1zm-1.7 13.2s-1.4 0-2.3-1c0 0-.1-.5.1-.7 0 0-1.2-1-1.5-1.7-.2-.5-.3-1.1-.2-1.6-4.4-3.7-10.9-4.2-12.9-9.1-.5-1.2-1.3-2.9-.9-3.9-.3.1-.5.2-.8.3-2.9.9-11.7 5.3-17.9 8.8 1.6 1.7 2.6 4.3 3.2 7.2l.3 1.5c.1.5.1 1 .2 1.5.1 1.4.4 2.7.8 3.9.2.8.6 1.5.9 2.2.6 1 1.2 1.9 2.1 2.6.6.5 1.2.9 1.9 1.3 2.1 1.1 5 1.6 8.6 1.5H37.9c.5 0 1 .1 1.5.1h.1c.4.1.9.1 1.3.2h.2c.4.1.9.2 1.3.4h.1c.4.1.8.3 1.1.5h.1c.4.2.7.4 1.1.6h.1c.7.4 1.3.9 1.9 1.5l.1.1c.6.5 1.1 1.1 1.5 1.8 0 .1.1.1.1.2s.1.1.1.2c.4.6 1.2 1.1 1.9 1.3.7-.9 1.5-1.8 2.2-2.8-1.6-6 0-11.7 1.8-16.9zm-26-15.9c5-2.4 9-4.1 9.9-4.5.3-.6.6-1.4.9-2.6.1-.3.2-.5.3-.8 1-2.7 2.7-2.8 3.5-3v-.2c.1-1.1.5-2 1-2.8-8.8 2.5-18 5.5-28 11.7-.1.1-.2.2-.4.2C11.3 34.5 3 40.3 1.3 51c2.4-2.7 6-5.6 10.5-8.5.1-.1.3-.2.5-.3.2-.1.5-.3.7-.4 1.2-.7 2.4-1.4 3.6-2.2 2.2-1.2 4.5-2.4 6.7-3.5 1.8-.8 3.5-1.6 5.1-2.3zm54.9 61.3l-.3-.3c-.8-.6-4.1-1.2-5.5-2.3-.4-.3-1.1-.7-1.7-1.1-1.6-.9-3.5-1.8-3.5-2.1v-.1c-.2-1.7-.2-7 .1-8.8.3-1.8.7-4.4.8-5.1.1-.6.5-1.2.1-1.2h-.4c-.2 0-.4.1-.8.1-1.5.3-4.3.6-6.6.4-.9-.1-1.6-.2-2-.3-.5-.1-.7-.2-.9-.3H62.3c-.4.5 0 2.7.6 4.8.3 1.1.8 2 1.2 3 .3.8.6 1.8.8 3.1 0 .2.1.4.1.7.2 2.8.3 3.6-.2 4.9-.1.3-.3.6-.4 1-.4.9-.7 1.7-.6 2.3 0 .2.1.4.1.5.2.4.6.7 1.2.8.2 0 .3.1.5.1.3 0 .6.1.9.1 3.4 0 5.2 0 8.6.4 2.5.4 3.9.6 5.1.5.4 0 .9-.1 1.4-.1 1.2-.2 1.8-.5 1.9-.9-.1.2-.1.1-.2-.1zM60.2 16.4zm-.5 1.7zm3.8.5c.1 0 .3.1.5.1.4.1.7.2 1.2.3.3.1.6.1.9.1h1.3c.3-.1.7-.1 1-.2.7-.2 1.5-.4 2.7-.6h.3c.3 0 .6.1.9.3.1.1.2.1.4.2.3.2.8.2 1.2.4h.1c.1 0 .1.1.2.1.6.3 1.3.7 1.9 1.1l.3.3c.9-.1 1.6-.2 2.1-.2h.1c-.2-.4-.3-1.3-1.8-.6-.6-.7-.8-1.3-2.1-.9-.1-.2-.2-.3-.3-.4l-.1-.1c-.1-.1-.2-.3-.3-.4 0-.1-.1-.1-.1-.2-.2-.3-.5-.5-.9-.7-.7-.4-1.5-.6-2.3-.5-.2 0-.4.1-.6.2-.1 0-.2.1-.2.1-.1 0-.2.1-.3.2-.5.3-1.3.8-2.1 1-.1 0-.1 0-.2.1-.2 0-.4.1-.5.1H66.5h-.1c-.4-.1-1.1-.2-2-.5-.1 0-.2-.1-.3-.1-.9-.2-1.8-.5-2.7-.8-.3-.1-.7-.2-1-.3-.1 0-.1 0-.2-.1h-.1s-.1 0-.1-.1c-.3-.3-.7-.6-1.3-.8-.5-.2-1.2-.4-2.1-.5-.2 0-.5 0-.7.1-.4.2-.8.6-1.2.9.1.1.3.3.4.5.1.2.2.4.3.7l-.6-.6c-.5-.4-1.1-.8-1.7-.9-.8-.2-1.4.4-2.3.9 1 0 1.8.1 2.5.4.1 0 .1 0 .2.1h.1c.1 0 .2.1.3.1.9.4 1.8.6 2.7.6h1.3c.5 0 .8-.1 1.1-.1.1 0 .4 0 .7-.1h2.2c.4.4.9.6 1.6.8z" style=fill:#88ce02 /><path d="M100 51.8c0-19.5-12.5-36.1-30-42.1.1-1.2.2-2.4.3-3.1.1-1.5.2-3.9-.5-4.9-1.6-2.3-9.1-2.1-10.5-.1-.4.6-.7 3.6-.6 5.9-1.1-.1-2.2-.1-3.3-.1-16.5 0-30.9 9-38.6 22.3-2.4 1.4-4.7 2.8-6.1 4C5.4 38 2.2 43.2 1 47c-1.6 4.7-1.1 7.6.4 5.8 1.2-1.5 6.6-5.9 10.1-8.2-.4 2.3-.6 4.8-.6 7.2 0 21 14.5 38.5 34 43.3-.1 1.1.1 2 .7 2.6.9.8 3.2 2 6.4 1.6 2.9-.3 3.5-.5 3.2-2.9h.2c2.7 0 5.3-.2 7.8-.7.1.1.2.2.4.3 1.5 1 7.1.8 9.6.7s6.2.9 8.6.5c2.9-.5 3.4-2.3 1.6-3.2-1.5-.8-3.8-1.3-6.7-3.1C90.6 83.4 100 68.7 100 51.8zM60.1 5.5c0-.5.1-1.5.2-2.1 0-.2 0-.4.1-.5v-.1c.1-.5 1-1.5 4.1-1.5 2.9 0 4.2.9 4.3 1.4v.1c0 .1 0 .3.1.5.1.8.2 1.9.1 2.7 0 .5-.1 2.1-.2 2.9 0 .1 0 .3-.1.5v.1c0 .2-.1.3-.1.5-.1.5-.2 1.1-.4 1.8-.1.6-.5 1.2-.9 1.7-.2.3-.5.5-.7.5-1.1.3-3.1.3-4.2 0-.3-.1-.5-.2-.8-.4 0-.1-.1-.1-.1-.2-.6-.9-.9-1.7-1-2.9 0-.4-.1-.6-.1-.9v-.1c-.1-.6-.2-1-.2-1.6v-.3c-.1-1.3-.1-2.1-.1-2.1zm-.4 7.5v-.4c.6.6 1.3 1.3 1.8 1.7.2.2.5.3.8.3.2 0 .3 0 .5.1h1.6c.8 0 1.6.1 2 0 .1 0 .2 0 .3-.1.6-.3 1.4-1 2.1-1.6 0 .6.1 1.2.1 1.7v1.5c0 .3 0 .5.1.7-.1.1-.2.1-.4.2-.7.4-1.7 1-2.3.9-.5-.1-1.5-.3-2.6-.7-1.2-.3-2.4-.8-3.2-1.2 0 0-.1 0-.1-.1-.2-.3-.4-.5-.6-.7-.3-.4-.5-.6-.5-.7.3-.4.4-.9.4-1.6zm.5 3.4zm-7.3-.3c.6.1 1.2.5 1.7.9.2.2.5.4.6.6-.1-.2-.2-.5-.3-.7-.1-.2-.3-.4-.4-.5.4-.3.8-.7 1.2-.9.2-.1.4-.1.7-.1.9.1 1.6.2 2.1.5.6.2 1 .5 1.3.8 0 0 .1 0 .1.1h.1c.1 0 .1 0 .2.1.3.1.6.2 1 .3.9.3 1.9.6 2.7.8.1 0 .2.1.3.1.9.2 1.6.4 2 .5h.4c.2 0 .4 0 .5-.1.1 0 .1 0 .2-.1.7-.2 1.5-.7 2.1-1 .1-.1.2-.1.3-.2.1 0 .2-.1.2-.1.2-.1.4-.2.6-.2.8-.2 1.7.1 2.3.5.3.2.6.4.9.7 0 .1.1.1.1.2.1.2.2.3.3.4l.1.1c.1.1.2.2.3.4 1.3-.4 1.5.2 2.1.9 1.6-.7 1.7.2 1.8.6h-.1c-.5 0-1.2 0-2.1.2l-.3-.3c-.5-.4-1.2-.8-1.9-1.1-.1 0-.1-.1-.2-.1h-.1c-.4-.2-.8-.2-1.2-.4-.1-.1-.2-.1-.4-.2-.3-.1-.6-.3-.9-.3h-.3c-1.2.1-2 .4-2.7.6-.3.1-.7.2-1 .2-.4.1-.8.1-1.3 0-.3 0-.6-.1-.9-.1-.5-.1-.8-.2-1.2-.3-.2 0-.3-.1-.5-.1h-.1c-.6-.2-1.2-.3-1.8-.4h-.1-2.1c-.4.1-.6.1-.7.1-.3 0-.7.1-1.1.1h-1.3c-.9 0-1.9-.2-2.7-.6-.1 0-.2-.1-.3-.1H53c-.1 0-.1 0-.2-.1-.7-.3-1.6-.4-2.5-.4 1.2-.8 1.8-1.4 2.6-1.3zm6.8 2zm-15.2 4.1c.1-.7.4-1.4.9-2 .1-.1.2-.2.2-.3l.8-.8c.9-.6 1.9-1.1 3-1.3.5-.1 1-.2 1.4-.2H52c.3 0 .6.1.9.1.1 0 .2 0 .2.1.1.1.2.1.4.2.4.2.8.3 1.3.4.2 0 .5.1.7.1.7.1 1.5.1 2.3.1H58.7c.4 0 .7-.1 1-.1H61.7c.6.1 1.1.2 1.7.4.2 0 .4.1.6.2.3.1.7.2 1.1.3.6.1 1.1.2 1.5.2.6 0 1.1-.1 1.6-.2.2 0 .3-.1.5-.1.5-.1 1-.3 1.7-.4.2 0 .5-.1.7-.1h.6c.2 0 .4.1.5.2l.1.1h.1c.1 0 .1 0 .2.1.2.1.3.1.4.1h.2c.1.1.3.1.4.2.4.2 1 .6 1.6.9.1.1.2.2.4.2.1.1.2.1.3.2.2.1.3.3.4.3l.1.1c1.1 1.4 1.8 3.3 1.6 5.3-.3 1.5-1.6.7-2.5.3 0 0-.1 0-.1-.1-.3-.1-.6-.2-.9-.4-.2-.1-.4-.1-.5-.2-1.2-.4-2.5-.7-4-.7-2 0-4.6.1-6.8.8-3 .8-4 .8-5.3.1-.8-.4-1.8-1.1-2.6-1.7-.1-.1-.2-.1-.2-.2-.1-.1-.1-.1-.2-.1-.3-.2-.6-.4-.6-.5l-.1-.1c-.2.3-.6 1-.8 1.4v.1c-.1 1.7-1 4.2-2.6 5.6-.2.1-.4.3-.6.4-.2.1-.5.2-.7.3-.7.2-1.4.2-1.9-.2-.5-.3-1.3-.7-2.3-1.1 2 1.6 3 2.8 3.9 4.9.7 1.7 1.7 4 3.9 6.5l.3.3c1.1 0 2.1.2 3 .7.4.2.7.4 1 .7.2.2.4.3.5.5.5.4.9.8.8 1.3v.1s0 .1-.1.1c-.1.2-.3.5-.5.7-.1.1-.4.4-.6.7-.1.1-.2.2-.3.2-.1.1-.4.3-.7.6-.2.2-.4.3-.5.4-.2.1-.4.4-.6.5-.3.1-.5.2-.8.1-.3 0-.7-.2-1-.3-.5-.3.1-.3-.5-.8-1.4-1-2.2-1.7-1.9-3.4v-.2c-.2-.1-.3-.3-.5-.4-3.9-3-10.1-4.9-11.5-8.3-.9-2.3-1-3.4-.2-4.4.4-.5.8-1 1-1.4 1.3-2.3.9-4.4 2.4-5.4 1.8-1.2 3.3.2 4.1 1.4-.5-2.1-2.3-2.6-2.3-2.8.3.1.3-.1.3-.3zm29 20s-.1 0 0 0c-.1 0-.1 0 0 0-.9.1-3.3.3-5.4.3h-.9c-.7 0-1.3-.1-1.8-.2-.1 0-.2 0-.3-.1-.7-.2-1.6-.5-2.4-.8-.6-.2-1.2-.5-1.7-.7-1.1-.5-2.1-1.1-2.3-1.3-.5-1.4-.7-2.7-.7-3.4.8-.4 1.3-.7 1.9-1.4-1.7.3-2.4.2-3.4-.4-1-.5-2.6-2.2-3.6-3.4 1-1.2 1.7-2.9 1.4-5.1.1-.2.3-.4.4-.6 0 .1.1.1.2.2.7.9 2.4 2 4.6 2.8 1.1.4 2 .1 2.9-.1 4-1 8.1-1.3 11.9-.1.1 0 .2.1.3.1.5.2.9.4 1.4.6.1 0 .1.1.2.1.1.7.2 2-.3 3.5-.1.3-.2.6-.4.9-.2.3-.3.6-.5 1-.1.3-.2.5-.4.8-.2.4-.3.8-.5 1.3-.4 1.4-.7 3.4-.6 6zm-23.9-9c.4-.2 1-.4 1.5-.8 1.6 1.8 3.3 3 5 4.1.3 1.4.5 2.4.8 4.2h-.2c-.1.5-.1.9-.1 1.3-1-.4-2.2-.5-2.6-.5-3.7-4.3-3-6-4.4-8.3zm-32.9 6.5c-1.3.7-2.5 1.4-3.6 2.2-.2.1-.5.3-.7.4-.1.1-.3.2-.5.3-4.5 2.9-8.1 5.8-10.5 8.5 1.7-10.8 10-16.5 14.3-19.2.1-.1.2-.2.4-.2 10-6.2 19.2-9.2 28-11.7-.5.8-.9 1.7-1 2.8v.2c-.8.1-2.5.2-3.5 3-.1.2-.2.5-.3.8-.3 1.2-.6 2-.9 2.6-.9.4-5 2.2-9.9 4.5-1.6.8-3.3 1.6-5 2.4-2.3 1-4.6 2.2-6.8 3.4zm28 24.8s0-.1 0 0c-.4-.3-.8-.5-1.2-.7h-.1c-.4-.2-.7-.3-1.1-.5h-.1c-.4-.1-.8-.3-1.3-.4h-.2c-.4-.1-.8-.2-1.3-.2h-.1c-.5-.1-1-.1-1.5-.1H35.9c-3.7.1-6.5-.4-8.6-1.5-.7-.4-1.4-.8-1.9-1.3-.9-.7-1.5-1.6-2.1-2.6-.4-.7-.7-1.4-.9-2.2-.4-1.2-.6-2.5-.8-3.9 0-.5-.1-1-.2-1.5l-.3-1.5c-.6-2.9-1.6-5.5-3.2-7.2 6.3-3.5 15-7.9 17.8-8.8.3-.1.6-.2.8-.3-.3 1.1.4 2.7.9 3.9 2.1 4.9 8.6 5.4 12.9 9.1 0 .5 0 1.1.2 1.6.5.6 1.7 1.6 1.7 1.6-.2.2-.1.7-.1.7.9 1 2.3 1 2.3 1-1.8 5.2-3.4 10.9-1.9 16.9-.7 1-1.5 1.8-2.2 2.8-.7-.2-1.4-.6-1.9-1.3 0-.1-.1-.1-.1-.2s-.1-.1-.1-.2l-1.5-1.8-.1-.1c-.5-.4-1.2-.9-1.9-1.3zm7.9 33.6c-1.3.1-2.9 0-4.3-.3h-.2-.1c-1.5-.8-2.1-1.2-2-2.4 0-.2 0-.3.1-.5 0-.1.1-.2.1-.3.5-1.1 2.1-2.2 3.4-3.2-.8 0-1.8.7-1.7-.1.2-1.5.9-1.3 1.3-2.1-.2-.3 3.3-.2 3.8.3v.1c0 .7.7 1.7.5 2.2-.1.3-.4-.2-.8-.3.2 1.1.6 3.1 1.3 4.6.1.1.1.2.1.3 0 .1.1.2.1.3 0 .7-.4 1.2-1.6 1.4zM59 67.7c0 .9-.3 1.6-.6 2-.7 1.1-1.7 1.4-2 3.2.4-.6 1.1-1.1 1.1-.9 0 .8-.1 1.4-.1 2v.2c-.1.6-.2 1.1-.3 1.6-.2.9-.5 1.7-.7 2.4-.4 1.2-.9 2.1-1.3 3.1l-.6 1.5c-.6 1.7-.4 5.6-.6 5.7-1.6.3-4.1-.3-4.7-.6.3-2.2.4-4.5.5-6.9.1-2.1.3-4.3.9-6.6.1-.5.3-1 .4-1.5 0-.1 0-.2.1-.2 0-.1 0-.1.1-.2.5-1.6 1.4-2.7 2.6-4.2.4-.4.7-.9 1.2-1.4-.1-.4-.2-.8-.4-1.3-.7-2.6-1.3-7.3 1.5-16.1.1 0 .2-.1.3-.1.2-.1.7-.5.8-.6.1-.1.3-.2.4-.3.1 0 .1-.1.2-.1l.6-.6 1.1-1.1c.4-.4.7-.5.8-.9v-.2c0-.8-1.1-1.5-1.5-2.1l-.1-.1c.1-.2.1-.4.2-.6 0-.2.1-.5.1-.8 0-.2.1-.5.1-.7.1.1.6.4 1.8.7.6.2 1.3.4 2.3.7 1.1.3 2.4.5 3.6.6 2.9.2 5.6 0 6.7-.2h.3v.1c0 .1 0 .2-.1.3v.9c0 .2 0 .3.1.5v.1c0 .4.1.7.2 1.1 0 .3.1.5.1.7v.1c0 .3.1.5.1.7 0 .2.1.3.1.5.1.2.1.4.2.6v.2c.1.4.2.8.2 1.1 1 5.7 2.3 12.9-1.1 16.7.2.8.3 1.9 0 3.2-.1.7-.3 1.4-.6 2.2-.2.5-.3 1-.5 1.5h-.3c-4.5.6-7.1.2-8.3-.1.5-1.6 1.7-3.3 3.7-3.2-.1-3.7-1.1-5-2-7.6 1.3-3 1.3-5.7 2-9.2v-.2c.2-.8.3-1.6.6-2.5-.4.5-.8 1.5-1.2 2.6v.1c-.5 1.5-.9 3.4-1.2 4.8-.2.8-.4 1.6-.7 2.4-.2.5-.4.9-.6 1.4-1.5 1.9-3 3.9-5.5 5.6zm18.5 24.9c1.5 1.1 4.7 1.8 5.5 2.3l.3.3c.1.1.1.2.1.3-.1.4-.7.7-1.9.9-.5.1-.9.1-1.4.1-1.3 0-2.6-.2-5.1-.5-3.4-.5-5.2-.4-8.6-.4-.3 0-.6 0-.9-.1-.2 0-.4-.1-.5-.1-.6-.2-1-.5-1.2-.8-.1-.2-.1-.3-.1-.5-.1-.7.2-1.5.6-2.3.2-.4.3-.7.4-1 .5-1.3.4-2.1.2-4.9 0-.2-.1-.4-.1-.7-.2-1.3-.5-2.3-.8-3.1-.4-1.1-.9-1.9-1.2-3-.6-2.1-1-4.3-.6-4.8H62.5c.2.1.5.2.9.3.5.1 1.1.2 2 .3 2.2.2 5.1-.2 6.6-.4.3-.1.6-.1.8-.1h.4c.4 0 .1.6-.1 1.2-.1.7-.5 3.3-.8 5.1-.3 1.8-.2 7.1-.1 8.8v.1c0 .3 1.9 1.2 3.5 2.1.7.2 1.4.5 1.8.9zm4.8-48.2c0 .1 0 .1 0 0-.1.1-.2.2-.2.3 0-.1-.1-.1-.1-.2 0 .1 0 .2-.1.2-.2.9-.6 2.4-2.2 4.1-.4.4-.7.6-1 .7-.5.1-.9 0-1.5-.1-.9-.2-1.3-.6-2.2-1.1-.1-.6-.3-1.3-.4-1.8 0-.3-.1-.5-.1-.6v-1l.4-.4s.7-1 1.8-1 2.2-.2 2.5-.5v-.1-.3c0-.1 0-.2-.1-.3-.4-1.4-2.1-1.8-1.4-4.8 0-.2.3-.5 1.2-.5-1.4-.3-2-.4-3-1.3.5-1.1 1-1.9 1.3-2.6.8-1.5.3-3.5.3-3.5.8-.3 1.6-.7 1.7-1 .9-2.8-.7-5.5-2.5-7.2 1.2-.1 2.6.1 3.6 1.1 2.4 2.4 1.8 5 1 6.8.6.7 2.1 2.9 1.2 5.3-.2.6-1.4.6-2.3 2.1 2.3-1.3 3.7-1 4.2.7 1 2.4-.6 5.3-2.1 7z"/><path d="M22 53.4v-.2c0-.2-.1-.5-.2-.9s-.1-.8-.2-1.3c-.5-4.7-1.9-9.4-4.9-11.3 3.7-2 16.8-8.5 21.9-10.5 2.9-1.2.8-.4-.2 1.4-.8 1.4-.3 2.9-.5 3.2-.6.8-12.6 10.5-15.9 19.6zm32.2-2.3c-3.4 3.8-12 11-18.2 11.4 8.7-.2 12.2 4.1 14.7 9.7 2.6-5.2 2.7-10.3 2.6-16.1 0-2.6 1.8-6 .9-5zm5.3-23L54.3 24s-1.1 3.1-1 4.6c.1 1.6-1.8 2.7-.9 3.6.9.9 3.2 2.5 4 3.4.7.9 1.1 7.1 1.1 7.1l2.2 2.7s1-1.8 1.1-6.3c.2-5.4-2.9-7.1-3.3-8.6-.4-1.4.6-2.9 2-2.4zm3.1 45.6l3.9.3s1.2-2.2 2.1-3.5c.9-1.4.4-1.6 0-4.6-.4-3-1.4-9.3-1.2-13.6l-3.1 10.2s1.8 5.6 1.6 6.4c-.1.8-3.3 4.8-3.3 4.8zm5 18.8c-1.1 0-2.5-.4-3.5-.8l-1 .3.2 4s5.2.7 4.6-.4c-.6-1.2-.3-3.1-.3-3.1zm12 .6c-1 0-.3.2.4 1.2.8 1 .1 2-.8 2.3l3.2.5 1.9-1.7c.1 0-3.7-2.3-4.7-2.3zM73 76c-1.6.5-4.2.8-5.9.8-1.7.1-3.7-.1-5-.5v1.4s1.2.5 5.4.5c3.5.1 5.7-.8 5.7-.8l.9-.8c-.1.1.5-1.1-1.1-.6zm-.2 3.1c-1.6.6-3.9.6-5.6.7-1.7.1-3.7-.1-5-.5l.1 1.4s.7.3 4.9.4c3.5.1 5.7-.7 5.7-.7l.3-.5c-.1-.1.3-1-.4-.8zm5.9-42.7c-.9-.8-1.4-2.4-1.5-3.3l-1.9 2.5.7 1.2s2.5.1 2.8.1c.4 0 .3-.1-.1-.5zM69 14.7c.6-.7.2-2.7.2-2.7L66 14.6l-4.4-.8-.5-1.3-1.3-.1c.8 1.8 1.8 2.5 3.3 3.1.9.4 4.5.9 5.9-.8z" style=opacity:.4;fill-rule:evenodd;clip-rule:evenodd /></svg></a></div></div>';
+    root.innerHTML = '<div class=gs-hit-area></div><div class=gs-top><div class=timeline><div class=timeline-track></div><div class=progress-bar></div><div class=seek-bar></div><svg class=in-point viewBox="0 0 15 26" xmlns=http://www.w3.org/2000/svg><path class=in-point-shape d="M0.5,2.283c0,-0.985 0.798,-1.783 1.783,-1.783c2.679,0 7.717,0 10.41,0c0.48,-0 0.939,0.19 1.278,0.529c0.339,0.339 0.529,0.798 0.529,1.277c-0,4.821 -0,17.897 0,21.968c0,0.253 -0.135,0.488 -0.354,0.615c-0.22,0.128 -0.49,0.128 -0.711,0.003c-2.653,-1.517 -9.526,-5.444 -12.016,-6.867c-0.568,-0.325 -0.919,-0.929 -0.919,-1.583c-0,-2.835 -0,-10.627 -0,-14.159Z" style="fill:#00ff52;fill-rule:nonzero;"/></svg><svg class=out-point viewBox="0 0 15 26" xmlns=http://www.w3.org/2000/svg><path class=out-point-shape d="M0.5,2.251c0,-0.465 0.184,-0.91 0.513,-1.238c0.328,-0.329 0.773,-0.513 1.238,-0.513c2.669,0 7.733,0 10.439,0c0.48,-0 0.94,0.191 1.28,0.53c0.339,0.34 0.53,0.8 0.53,1.28l0,14.17c-0,0.631 -0.338,1.213 -0.886,1.526c-2.44,1.395 -9.262,5.293 -11.977,6.845c-0.236,0.134 -0.524,0.133 -0.759,-0.003c-0.234,-0.136 -0.378,-0.386 -0.378,-0.657c0,-4.178 0,-17.198 0,-21.94Z" style="fill-rule:nonzero;"/></svg><div class=playhead></div></div></div><div class=gs-bottom><div class=select-animation-container><label class=select-animation><select class=animation-list><option>Global Timeline<option>myTimeline</select><nobr><span class="display animation-label">Global Timeline</span><svg class=select-arrow viewBox="0 0 12.05 6.73" xmlns=http://www.w3.org/2000/svg><polyline class=select-arrow-shape points="0.35 0.35 6.03 6.03 11.7 0.35"/></svg></nobr></label></div><svg class=rewind viewBox="0 0 12 15.38" xmlns=http://www.w3.org/2000/svg><path d=M0,.38H2v15H0Zm2,7,10,7.36V0Z class="gs-btn-white rewind-path"/></svg><svg class=play-pause viewBox="0 0 20.97 25.67" xmlns=http://www.w3.org/2000/svg><g class=play><path d="M8,4.88 C8,10.18 8,15.48 8,20.79 5.33,22.41 2.66,24.04 0,25.67 0,17.11 0,8.55 0,0 2.66,1.62 5.33,3.25 8,4.88" class="gs-btn-white play-1" style=stroke:#fffce1;stroke-width:.6px /><path d="M14.485,8.855 C16.64,10.18 18.8,11.5 20.97,12.83 16.64,15.48 12.32,18.13 8,20.79 8,15.48 8,10.18 8,4.88 10.16,6.2 12.32,7.53 14.48,8.85" class="gs-btn-white play-2" style=stroke:#fffce1;stroke-width:.6px /></g></svg> <svg class=loop viewBox="0 0 29 25.38" xmlns=http://www.w3.org/2000/svg fill="currentcolor"><path d=M27.44,5.44,20.19,0V3.06H9.06A9.31,9.31,0,0,0,0,12.41,9.74,9.74,0,0,0,.69,16l3.06-2.23a6,6,0,0,1-.12-1.22,5.49,5.49,0,0,1,5.43-5.5H20.19v3.81Z class=loop-path /><path d=M25.25,11.54a5.18,5.18,0,0,1,.12,1.12,5.41,5.41,0,0,1-5.43,5.41H9.19V14.5L1.94,19.94l7.25,5.44V22.06H19.94A9.2,9.2,0,0,0,29,12.84a9.42,9.42,0,0,0-.68-3.53Z class=loop-path /></svg> <svg class=ease viewBox="0 0 25.67 25.67" xmlns=http://www.w3.org/2000/svg><path d=M.48,25.12c1.74-3.57,4.28-12.6,8.8-10.7s4.75,1.43,6.5-1.11S19.89,1.19,25.2.55 class=ease-path /><path d=M24.67,1V24.67H1V1H24.67m1-1H0V25.67H25.67V0Z class=ease-border /></svg><label class=time-scale><select><option value=10>10x<option value=5>5x<option value=2>2x<option value=1 selected>1x<option value=0.5>0.5x<option value=0.25>0.25x<option value=0.1>0.1x</select><span class="display time-scale-label">1x</span></label><div class=gs-bottom-right><div class=time-container><span class=time>0.00</span> / <span class=duration>0.00</span></div><a href="https://gsap.com/docs/v3/Plugins/GSDevTools?source=GSDevTools" target=_blank title=Docs><svg class="logo" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M793 518.654C793 518.654 793 518.829 793 518.934L770.197 618.386C768.967 624.012 763.38 628.135 756.915 628.135H729.404C727.366 628.135 725.539 629.498 724.977 631.455C699.573 718.082 665.175 777.628 619.745 813.376C581.095 843.813 533.451 858 469.819 858C412.618 858 374.074 839.514 341.362 803.032C298.145 754.809 280.261 675.869 291.083 580.75C310.618 402.184 402.745 222.01 580.217 222.01C634.185 221.521 676.559 238.26 706.039 271.667C737.204 306.995 753.05 360.216 753.121 429.86C753.015 436.185 747.78 441.287 741.491 441.287H611.488C606.885 441.287 602.774 437.129 602.844 432.551C601.79 384.397 587.56 360.915 559.311 360.915C509.488 360.915 480.079 428.917 464.479 466.622C442.694 519.283 431.627 576.452 433.805 633.412C434.824 659.935 439.075 697.22 464.127 712.666C486.333 726.364 518.026 717.279 537.21 702.113C556.394 686.947 571.819 660.703 578.319 636.766C579.233 633.447 579.303 630.861 578.425 629.708C577.511 628.52 574.981 628.24 573.049 628.24H539.67C536.086 628.24 532.537 626.598 530.394 623.942C528.602 621.705 527.899 618.945 528.532 616.219L551.37 516.592C552.494 511.49 557.097 507.647 562.754 506.948V506.703H781.827C782.354 506.703 782.881 506.703 783.373 506.808C789.065 507.542 793.07 512.853 792.965 518.654H793Z" fill="#0AE448"/></svg></a></div></div>';
 
     if (element) {
       root.style.position = "absolute";
@@ -19054,9 +19289,9 @@
             endTime = tl.duration();
           }
 
-          while (tl.parent.parent && tl !== declaredAnimation) {
-            startTime = startTime / (tl._ts || tl._pauseTS) + tl._start;
-            endTime = endTime / (tl._ts || tl._pauseTS) + tl._start;
+          while (tl.parent && tl !== declaredAnimation) {
+            startTime = startTime / (tl._ts || tl._rts) + tl._start;
+            endTime = endTime / (tl._ts || tl._rts) + tl._start;
             tl = tl.parent;
           }
 
@@ -19449,7 +19684,7 @@
     _context$4(this);
   };
 
-  GSDevTools.version = "3.12.7";
+  GSDevTools.version = "3.15.0";
   GSDevTools.globalRecordingTime = 2;
 
   GSDevTools.getById = function (id) {
@@ -19540,7 +19775,7 @@
     this.p = property;
     this.g = target._gsap.get;
     this.rCap = _types$1[type || _getUnit$3(this.g(target, property))];
-    this.v1 = this.v2 = 0;
+    this.v1 = this.v2 = this.g(target, property);
     this.t1 = this.t2 = _ticker$1.time;
 
     if (next) {
@@ -19551,10 +19786,7 @@
 
   var VelocityTracker = function () {
     function VelocityTracker(target, property) {
-      if (!_coreInitted$g) {
-        _initCore$g();
-      }
-
+      _coreInitted$g || _initCore$g();
       this.target = _toArray$6(target)[0];
       _lookup$2[_getID$1(this.target)] = this;
       this._props = {};
@@ -19606,7 +19838,12 @@
     };
 
     _proto.add = function add(property, type) {
-      if (!(property in this._props)) {
+      var pt = this._props[property];
+
+      if (pt) {
+        pt.v1 = pt.v2 = pt.g(pt.t, pt.p);
+        pt.t1 = pt.t2 = _ticker$1.time;
+      } else {
         if (!_first) {
           _ticker$1.add(_onTick);
 
@@ -19653,9 +19890,7 @@
     };
 
     VelocityTracker.track = function track(targets, properties, types) {
-      if (!_coreInitted$g) {
-        _initCore$g();
-      }
+      _coreInitted$g || _initCore$g();
 
       var result = [],
           targs = _toArray$6(targets),
@@ -19680,19 +19915,15 @@
     };
 
     VelocityTracker.untrack = function untrack(targets, properties) {
-      var props = (properties || "").split(",");
+      var props = properties && properties.split(",");
 
       _toArray$6(targets).forEach(function (target) {
         var tracker = _getByTarget(target);
 
         if (tracker) {
-          if (!props.length) {
-            tracker.kill(1);
-          } else {
-            props.forEach(function (p) {
-              return tracker.remove(p);
-            });
-          }
+          props ? props.forEach(function (p) {
+            return tracker.remove(p);
+          }) : tracker.kill(1);
         }
       });
     };
@@ -19715,12 +19946,11 @@
   _getGSAP$i() && gsap$k.registerPlugin(VelocityTracker);
 
   /*!
-   * InertiaPlugin 3.12.7
+   * InertiaPlugin 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
 
@@ -20057,7 +20287,7 @@
   };
 
   var InertiaPlugin$1 = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "inertia",
     register: function register(core) {
       gsap$l = core;
@@ -20181,21 +20411,12 @@
   });
   _getGSAP$j() && gsap$l.registerPlugin(InertiaPlugin$1);
 
-  /*!
-   * MorphSVGPlugin 3.12.7
-   * https://gsap.com
-   *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
-   * @author: Jack Doyle, jack@greensock.com
-  */
-
   var gsap$m,
       _toArray$8,
       _lastLinkedAnchor,
       _coreInitted$i,
       PluginClass,
+      _reverting$7,
       _getGSAP$k = function _getGSAP() {
     return gsap$m || typeof window !== "undefined" && (gsap$m = window.gsap) && gsap$m.registerPlugin && gsap$m;
   },
@@ -20211,13 +20432,15 @@
       _angleMin = _PI * 0.3,
       _angleMax = _PI * 0.7,
       _bigNum$5 = 1e20,
-      _numExp$4 = /[-+=\.]*\d+[\.e\-\+]*\d*[e\-\+]*\d*/gi,
-      _selectorExp$1 = /(^[#\.][a-z]|[a-y][a-z])/i,
+      _numExp$4 = /[-+=.]*\d+[.e\-+]*\d*[e\-+]*\d*/gi,
+      _selectorExp$1 = /(^[#.][a-z]|[a-y][a-z])/i,
       _commands = /[achlmqstvz]/i,
       _log = function _log(message) {
     return console && console.warn(message);
   },
-      _bonusValidated$3 = 1,
+      _round$b = function _round(value) {
+    return Math.round(value * 1e5) / 1e5 || 0;
+  },
       _getAverageXY = function _getAverageXY(segment) {
     var l = segment.length,
         x = 0,
@@ -20478,55 +20701,160 @@
     pool.splice(index, 1);
     return d;
   },
-      _subdivideSegmentQty = function _subdivideSegmentQty(segment, quantity) {
-    var tally = 0,
-        max = 0.999999,
-        l = segment.length,
-        newPointsPerSegment = quantity / ((l - 2) / 6),
-        ax,
-        ay,
-        cp1x,
-        cp1y,
-        cp2x,
-        cp2y,
-        bx,
-        by,
+      _addAnchorsToBezier = function _addAnchorsToBezier(segment, i, quantity) {
+    if (quantity === void 0) {
+      quantity = 1;
+    }
+
+    var ax = segment[i],
+        ay = segment[i + 1],
+        cp1x = segment[i + 2],
+        cp1y = segment[i + 3],
+        cp2x = segment[i + 4],
+        cp2y = segment[i + 5],
+        bx = segment[i + 6],
+        by = segment[i + 7],
+        t,
+        x1a,
+        x2,
+        y1a,
+        y2,
         x1,
         y1,
-        x2,
-        y2,
-        i,
-        t;
+        x2a,
+        y2a;
 
-    for (i = 2; i < l; i += 6) {
-      tally += newPointsPerSegment;
+    while (quantity-- > 0) {
+      t = 1 - 1 / (quantity + 2);
+      x1a = ax + (cp1x - ax) * t;
+      x2 = cp1x + (cp2x - cp1x) * t;
+      y1a = ay + (cp1y - ay) * t;
+      y2 = cp1y + (cp2y - cp1y) * t;
+      x1 = x1a + (x2 - x1a) * t;
+      y1 = y1a + (y2 - y1a) * t;
+      x2a = cp2x + (bx - cp2x) * t;
+      y2a = cp2y + (by - cp2y) * t;
+      x2 += (x2a - x2) * t;
+      y2 += (y2a - y2) * t;
+      segment.splice(i + 2, 4, cp1x = _round$b(x1a), cp1y = _round$b(y1a), cp2x = _round$b(x1), cp2y = _round$b(y1), bx = _round$b(x1 + (x2 - x1) * t), by = _round$b(y1 + (y2 - y1) * t), _round$b(x2), _round$b(y2), _round$b(x2a), _round$b(y2a));
+    }
+  },
+      _getLargestIndex = function _getLargestIndex(a) {
+    var i = a.length,
+        max = -_bigNum$5,
+        largestIndex;
 
-      while (tally > max) {
-        ax = segment[i - 2];
-        ay = segment[i - 1];
-        cp1x = segment[i];
-        cp1y = segment[i + 1];
-        cp2x = segment[i + 2];
-        cp2y = segment[i + 3];
-        bx = segment[i + 4];
-        by = segment[i + 5];
-        t = 1 / ((Math.floor(tally) || 1) + 1);
-        x1 = ax + (cp1x - ax) * t;
-        x2 = cp1x + (cp2x - cp1x) * t;
-        x1 += (x2 - x1) * t;
-        x2 += (cp2x + (bx - cp2x) * t - x2) * t;
-        y1 = ay + (cp1y - ay) * t;
-        y2 = cp1y + (cp2y - cp1y) * t;
-        y1 += (y2 - y1) * t;
-        y2 += (cp2y + (by - cp2y) * t - y2) * t;
-        segment.splice(i, 4, ax + (cp1x - ax) * t, ay + (cp1y - ay) * t, x1, y1, x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, x2, y2, cp2x + (bx - cp2x) * t, cp2y + (by - cp2y) * t);
-        i += 6;
-        l += 6;
-        tally--;
+    while (i--) {
+      if (a[i] > max) {
+        max = a[i];
+        largestIndex = i;
       }
     }
 
-    return segment;
+    return largestIndex;
+  },
+      _subdivideSegmentQty = function _subdivideSegmentQty(segment, quantity) {
+    var distances = [],
+        anchorsToAdd = [],
+        l = segment.length - 2,
+        i = 0;
+
+    for (; i < l; i += 6) {
+      distances.push(Math.pow(segment[i] - segment[i + 6], 2) + Math.pow(segment[i + 1] - segment[i + 7], 2));
+    }
+
+    while (quantity--) {
+      i = _getLargestIndex(distances);
+      anchorsToAdd[i] = l = (anchorsToAdd[i] || 0) + 1;
+      distances[i] *= l / (l + 1);
+    }
+
+    i = distances.length;
+
+    while (i--) {
+      anchorsToAdd[i] && _addAnchorsToBezier(segment, i * 6, anchorsToAdd[i]);
+    }
+  },
+      _getDefaultSmoothPoints = function _getDefaultSmoothPoints(rawPath, skipMeasure) {
+    skipMeasure || cacheRawPathMeasurements(rawPath);
+    return Math.max(4, Math.round(rawPath.totalLength / 4));
+  },
+      _cloneAndSortRawPath = function _cloneAndSortRawPath(ar) {
+    return ar.slice(0).sort(_sortByComplexity);
+  },
+      _segmentCanBeIgnored = function _segmentCanBeIgnored(segment) {
+    var x = segment[0],
+        y = segment[1],
+        i = 2;
+
+    for (; i < segment.length; i += 2) {
+      if (Math.abs(segment[i] - x) > 0.01 || Math.abs(segment[i + 1] - y) > 0.01) {
+        return false;
+      }
+    }
+
+    return true;
+  },
+      _smoothRawPath = function _smoothRawPath(rawPath, config) {
+    config = config || {};
+    var _config = config,
+        redraw = _config.redraw,
+        points = _config.points,
+        _config$maxSegments = _config.maxSegments,
+        maxSegments = _config$maxSegments === void 0 ? 999 : _config$maxSegments,
+        pointsAdded = 0,
+        sortedRawPath = rawPath,
+        templateRawPath = Array.isArray(points) ? points : 0,
+        segmentPointsToAdd,
+        j,
+        segment,
+        smoothSegment,
+        anchorDistance;
+    redraw = redraw !== false;
+
+    if (redraw) {
+      cacheRawPathMeasurements(rawPath);
+    } else {
+      rawPath.totalPoints = 0;
+      j = rawPath.length;
+
+      while (j--) {
+        rawPath.totalPoints += rawPath[j].length;
+      }
+    }
+
+    if (templateRawPath) {
+      sortedRawPath = _cloneAndSortRawPath(rawPath);
+      templateRawPath = _cloneAndSortRawPath(templateRawPath);
+      anchorDistance = templateRawPath[0].totalLength / Math.round(templateRawPath[0].length / 6);
+    } else {
+      if (!points || points === "auto") {
+        points = _getDefaultSmoothPoints(rawPath, redraw);
+        redraw || (points -= Math.round(rawPath.totalPoints / 6));
+      }
+
+      points = Math.max(redraw ? 10 : 4, Math.min(999, points));
+    }
+
+    for (j = 0; j < sortedRawPath.length; j++) {
+      segment = sortedRawPath[j];
+      segmentPointsToAdd = Math.max(redraw ? 10 : 4, templateRawPath ? Math.round(templateRawPath[j] ? templateRawPath[j].length / 6 : sortedRawPath[j].totalLength / anchorDistance || 0) : Math.round((pointsAdded / points + (redraw ? segment.totalLength / rawPath.totalLength : segment.length / rawPath.totalPoints)) * points) - pointsAdded);
+
+      if (j >= maxSegments || templateRawPath && (!templateRawPath[j] || _segmentCanBeIgnored(templateRawPath[j]))) ; else if (redraw) {
+        var _segment;
+
+        smoothSegment = pointsToSegment(segmentToDistributedPoints(segment, segmentPointsToAdd), config.curviness);
+        segment.length = 0;
+
+        (_segment = segment).push.apply(_segment, smoothSegment);
+      } else {
+        _subdivideSegmentQty(segment, segmentPointsToAdd);
+      }
+
+      pointsAdded += segmentPointsToAdd;
+    }
+
+    return rawPath;
   },
       _equalizeSegmentQuantity = function _equalizeSegmentQuantity(start, end, shapeIndex, map, fillSafe) {
     var dif = end.length - start.length,
@@ -20554,8 +20882,8 @@
     if (longer.length > 1) {
       start.sort(sortMethod);
       end.sort(sortMethod);
-      offsetX = longer.size || _getTotalSize(longer);
-      offsetX = shorter.size || _getTotalSize(shorter);
+      longer.size || _getTotalSize(longer);
+      shorter.size || _getTotalSize(shorter);
       offsetX = longer.centerX - shorter.centerX;
       offsetY = longer.centerY - shorter.centerY;
 
@@ -20567,14 +20895,8 @@
     }
 
     if (dif) {
-      if (dif < 0) {
-        dif = -dif;
-      }
-
-      if (longer[0].length > shorter[0].length) {
-        _subdivideSegmentQty(shorter[0], (longer[0].length - shorter[0].length) / 6 | 0);
-      }
-
+      dif < 0 && (dif = -dif);
+      longer[0].length > shorter[0].length && _subdivideSegmentQty(shorter[0], (longer[0].length - shorter[0].length) / 6 | 0);
       i = shorter.length;
 
       while (added < dif) {
@@ -20654,10 +20976,7 @@
 
     a[0] = rawPathToString(start);
     a[1] = rawPathToString(end);
-
-    if (precompile === "log" || precompile === true) {
-      _log('precompile:["' + a[0] + '","' + a[1] + '"]');
-    }
+    (precompile === "log" || precompile === true) && _log('precompile:["' + a[0] + '","' + a[1] + '"]');
   },
       _offsetPoints = function _offsetPoints(text, offset) {
     if (!offset) {
@@ -20773,10 +21092,8 @@
 
     return shape;
   },
-      _populateSmoothData = function _populateSmoothData(rawPath, tolerance) {
+      _recordControlPointData = function _recordControlPointData(rawPath) {
     var j = rawPath.length,
-        limit = 0.2 * (tolerance || 1),
-        smooth,
         segment,
         x,
         y,
@@ -20784,52 +21101,23 @@
         y2,
         i,
         l,
-        a,
-        a2,
-        isSmooth,
-        smoothData;
+        cpData;
 
     while (--j > -1) {
       segment = rawPath[j];
-      isSmooth = segment.isSmooth = segment.isSmooth || [0, 0, 0, 0];
-      smoothData = segment.smoothData = segment.smoothData || [0, 0, 0, 0];
-      isSmooth.length = 4;
+      cpData = segment.cpData = segment.cpData || [];
+      cpData.length = 0;
       l = segment.length - 2;
 
-      for (i = 6; i < l; i += 6) {
-        x = segment[i] - segment[i - 2];
-        y = segment[i + 1] - segment[i - 1];
-        x2 = segment[i + 2] - segment[i];
-        y2 = segment[i + 3] - segment[i + 1];
-        a = _atan2$2(y, x);
-        a2 = _atan2$2(y2, x2);
-        smooth = Math.abs(a - a2) < limit;
-
-        if (smooth) {
-          smoothData[i - 2] = a;
-          smoothData[i + 2] = a2;
-          smoothData[i - 1] = _sqrt$3(x * x + y * y);
-          smoothData[i + 3] = _sqrt$3(x2 * x2 + y2 * y2);
-        }
-
-        isSmooth.push(smooth, smooth, 0, 0, smooth, smooth);
-      }
-
-      if (segment[l] === segment[0] && segment[l + 1] === segment[1]) {
-        x = segment[0] - segment[l - 2];
-        y = segment[1] - segment[l - 1];
-        x2 = segment[2] - segment[0];
-        y2 = segment[3] - segment[1];
-        a = _atan2$2(y, x);
-        a2 = _atan2$2(y2, x2);
-
-        if (Math.abs(a - a2) < limit) {
-          smoothData[l - 2] = a;
-          smoothData[2] = a2;
-          smoothData[l - 1] = _sqrt$3(x * x + y * y);
-          smoothData[3] = _sqrt$3(x2 * x2 + y2 * y2);
-          isSmooth[l - 2] = isSmooth[l - 1] = true;
-        }
+      for (i = 0; i < l; i += 6) {
+        x = segment[i] - segment[i + 2];
+        y = segment[i + 1] - segment[i + 3];
+        x2 = segment[i + 6] - segment[i + 4];
+        y2 = segment[i + 7] - segment[i + 5];
+        cpData[i + 2] = _atan2$2(y, x);
+        cpData[i + 3] = _sqrt$3(x * x + y * y);
+        cpData[i + 4] = _atan2$2(y2, x2);
+        cpData[i + 5] = _sqrt$3(x2 * x2 + y2 * y2);
       }
     }
 
@@ -20883,6 +21171,8 @@
 
     if (gsap$m && PluginClass) {
       _toArray$8 = gsap$m.utils.toArray;
+
+      _reverting$7 = gsap$m.core.reverting || function () {};
       PluginClass.prototype._tweenRotation = _tweenRotation;
       _coreInitted$i = 1;
     } else if (required) {
@@ -20891,7 +21181,7 @@
   };
 
   var MorphSVGPlugin = {
-    version: "3.12.7",
+    version: "3.15.0",
     name: "morphSVG",
     rawVars: 1,
     register: function register(core, Plugin) {
@@ -20910,7 +21200,7 @@
       }
 
       _isFunction$7(value) && (value = value.call(tween, index, target, targets));
-      var type, p, pt, shape, isPoly, shapeIndex, map, startSmooth, endSmooth, start, end, i, j, l, startSeg, endSeg, precompiled, sData, eData, originFactors, useRotation, offset;
+      var type, p, pt, shape, isPoly, shapeIndex, map, startCPData, endCPData, start, end, i, j, l, startSeg, endSeg, precompiled, originFactors, useRotation, curveMode;
 
       if (typeof value === "string" || value.getBBox || value[0]) {
         value = {
@@ -20929,7 +21219,11 @@
       var cs = target.nodeType ? window.getComputedStyle(target) : {},
           fill = cs.fill + "",
           fillSafe = !(fill === "none" || (fill.match(_numExp$4) || [])[3] === "0" || cs.fillRule === "evenodd"),
+          smooth = value.smooth,
           origins = (value.origin || "50 50").split(",");
+      smooth === true || smooth === "auto" ? smooth = {} : typeof smooth === "number" && (smooth = {
+        points: smooth
+      });
       type = (target.nodeName + "").toUpperCase();
       isPoly = type === "POLYLINE" || type === "POLYGON";
 
@@ -20964,7 +21258,7 @@
       if (shape) {
         this._target = target;
         precompiled = typeof value.precompile === "object";
-        start = this._prop ? target[this._prop] : target.getAttribute(p);
+        start = this._original = this._prop ? target[this._prop] : target.getAttribute(p);
 
         if (!this._prop && !target.getAttributeNS(null, "data-original")) {
           target.setAttributeNS(null, "data-original", start);
@@ -20973,6 +21267,23 @@
         if (p === "d" || this._prop) {
           start = stringToRawPath(precompiled ? value.precompile[0] : start);
           end = stringToRawPath(precompiled ? value.precompile[1] : shape);
+
+          if (smooth) {
+            j = start.length;
+
+            while (--j) {
+              _segmentCanBeIgnored(start[j]) && start.splice(j, 1);
+            }
+
+            _smoothRawPath(start, _extends({}, smooth, {
+              points: +smooth.points || Math.max(_getDefaultSmoothPoints(start), _getDefaultSmoothPoints(end)),
+              maxSegments: end.length
+            }));
+
+            _smoothRawPath(end, smooth.redraw === false ? smooth : _extends({}, smooth, {
+              points: start
+            }));
+          }
 
           if (!precompiled && !_equalizeSegmentQuantity(start, end, shapeIndex, map, fillSafe)) {
             return false;
@@ -20983,29 +21294,21 @@
           }
 
           useRotation = (value.type || MorphSVGPlugin.defaultType) !== "linear";
+          curveMode = value.curveMode || useRotation;
+
+          _recordControlPointData(start);
+
+          _recordControlPointData(end);
 
           if (useRotation) {
-            start = _populateSmoothData(start, value.smoothTolerance);
-            end = _populateSmoothData(end, value.smoothTolerance);
-
-            if (!start.size) {
-              _getTotalSize(start);
-            }
-
-            if (!end.size) {
-              _getTotalSize(end);
-            }
-
+            start.size || _getTotalSize(start);
+            end.size || _getTotalSize(end);
             originFactors = _parseOriginFactors(origins[0]);
             this._origin = start.origin = {
               x: start.left + originFactors.x * start.width,
               y: start.top + originFactors.y * start.height
             };
-
-            if (origins[1]) {
-              originFactors = _parseOriginFactors(origins[1]);
-            }
-
+            origins[1] && (originFactors = _parseOriginFactors(origins[1]));
             this._eOrigin = {
               x: end.left + originFactors.x * end.width,
               y: end.top + originFactors.y * end.height
@@ -21018,41 +21321,37 @@
           while (--j > -1) {
             startSeg = start[j];
             endSeg = end[j];
-            startSmooth = startSeg.isSmooth || [];
-            endSmooth = endSeg.isSmooth || [];
+            startCPData = startSeg.cpData;
+            endCPData = endSeg.cpData;
             l = startSeg.length;
             _lastLinkedAnchor = 0;
 
-            for (i = 0; i < l; i += 2) {
+            for (i = 0; i < l; i += 6) {
               if (endSeg[i] !== startSeg[i] || endSeg[i + 1] !== startSeg[i + 1]) {
                 if (useRotation) {
-                  if (startSmooth[i] && endSmooth[i]) {
-                    sData = startSeg.smoothData;
-                    eData = endSeg.smoothData;
-                    offset = i + (i === l - 4 ? 7 - l : 5);
-                    this._controlPT = {
-                      _next: this._controlPT,
-                      i: i,
-                      j: j,
-                      l1s: sData[i + 1],
-                      l1c: eData[i + 1] - sData[i + 1],
-                      l2s: sData[offset],
-                      l2c: eData[offset] - sData[offset]
-                    };
-                    pt = this._tweenRotation(startSeg, endSeg, i + 2);
-
-                    this._tweenRotation(startSeg, endSeg, i, pt);
-
-                    this._tweenRotation(startSeg, endSeg, offset - 1, pt);
-
-                    i += 4;
-                  } else {
-                    this._tweenRotation(startSeg, endSeg, i);
-                  }
+                  pt = this._tweenRotation(startSeg, endSeg, i);
                 } else {
                   pt = this.add(startSeg, i, startSeg[i], endSeg[i], 0, 0, 0, 0, 0, 1);
                   pt = this.add(startSeg, i + 1, startSeg[i + 1], endSeg[i + 1], 0, 0, 0, 0, 0, 1) || pt;
                 }
+              }
+            }
+
+            for (i = 0; i < l; i += 2) {
+              if (curveMode && (startCPData[i] !== endCPData[i] || startCPData[i + 1] !== endCPData[i + 1]) && startCPData[i + 1] && endCPData[i + 1]) {
+                this._controlPT = {
+                  _next: this._controlPT,
+                  i: i,
+                  j: j,
+                  ai: i % 6 > 3 ? i + 2 : i - 2,
+                  sa: startCPData[i],
+                  ca: _shortAngle(endCPData[i] - startCPData[i]),
+                  sl: startCPData[i + 1],
+                  cl: endCPData[i + 1] - startCPData[i + 1]
+                };
+              } else {
+                endSeg[i] !== startSeg[i] && (pt = this.add(startSeg, i, startSeg[i], endSeg[i], 0, 0, 0, 0, 0, 1));
+                endSeg[i + 1] !== startSeg[i + 1] && (pt = this.add(startSeg, i + 1, startSeg[i + 1], endSeg[i + 1], 0, 0, 0, 0, 0, 1) || pt);
               }
             }
           }
@@ -21068,12 +21367,12 @@
         if (pt) {
           this._props.push("morphSVG");
 
-          pt.end = shape;
+          pt.end = smooth && smooth.persist !== false ? rawPathToString(end) : shape;
           pt.endProp = p;
         }
       }
 
-      return _bonusValidated$3;
+      return 1;
     },
     render: function render(ratio, data) {
       var rawPath = data._rawPath,
@@ -21084,17 +21383,13 @@
           pt = data._pt,
           s,
           space,
-          easeInOut,
           segment,
           l,
           angle,
           i,
           j,
-          x,
-          y,
           sin,
-          cos,
-          offset;
+          cos;
 
       while (pt) {
         pt.r(ratio, pt.d);
@@ -21124,24 +21419,20 @@
           anchorPT = anchorPT._next;
         }
 
-        easeInOut = ratio < 0.5 ? 2 * ratio * ratio : (4 - 2 * ratio) * ratio - 1;
-
         while (controlPT) {
-          i = controlPT.i;
           segment = rawPath[controlPT.j];
-          offset = i + (i === segment.length - 4 ? 7 - segment.length : 5);
-          angle = _atan2$2(segment[offset] - segment[i + 1], segment[offset - 1] - segment[i]);
+          i = controlPT.i;
+          angle = controlPT.sa + ratio * controlPT.ca;
           sin = _sin$2(angle);
           cos = _cos$2(angle);
-          x = segment[i + 2];
-          y = segment[i + 3];
-          l = controlPT.l1s + easeInOut * controlPT.l1c;
-          segment[i] = x - cos * l;
-          segment[i + 1] = y - sin * l;
-          l = controlPT.l2s + easeInOut * controlPT.l2c;
-          segment[offset - 1] = x + cos * l;
-          segment[offset] = y + sin * l;
+          l = controlPT.sl + ratio * controlPT.cl;
+          segment[i] = segment[controlPT.ai] - cos * l;
+          segment[i + 1] = segment[controlPT.ai + 1] - sin * l;
           controlPT = controlPT._next;
+        }
+
+        if (!ratio && _reverting$7()) {
+          rawPath = stringToRawPath(data._original);
         }
 
         target._gsRawPath = rawPath;
@@ -21158,6 +21449,8 @@
             for (i = 2; i < l; i++) {
               s += (segment[i] * rnd | 0) / rnd + space;
             }
+
+            segment.closed && (s += "z");
           }
 
           if (data._prop) {
@@ -21176,6 +21469,7 @@
     getRawPath: getRawPath,
     stringToRawPath: stringToRawPath,
     rawPathToString: rawPathToString,
+    smoothRawPath: _smoothRawPath,
     normalizeStrings: function normalizeStrings(shape1, shape2, _ref) {
       var shapeIndex = _ref.shapeIndex,
           map = _ref.map;
@@ -21299,18 +21593,18 @@
       _history.length = 30;
     }
   },
-      _round$b = function _round(value) {
+      _round$c = function _round(value) {
     return ~~(value * 1000 + (value < 0 ? -.5 : .5)) / 1000;
   },
       _getSquarePathData = function _getSquarePathData(size) {
-    size = _round$b(size);
+    size = _round$c(size);
     return ["M-" + size, -size, size, -size, size, size, -size, size + "z"].join(_comma);
   },
       _getCirclePathData = function _getCirclePathData(size) {
     var circ = 0.552284749831,
-        rcirc = _round$b(size * circ);
+        rcirc = _round$c(size * circ);
 
-    size = _round$b(size);
+    size = _round$c(size);
     return "M" + size + ",0C" + [size, rcirc, rcirc, size, 0, size, -rcirc, size, -size, rcirc, -size, 0, -size, -rcirc, -rcirc, -size, 0, -size, rcirc, -size, size, -rcirc, size, 0].join(_comma) + "z";
   },
       _checkDeselect = function _checkDeselect(e) {
@@ -22063,7 +22357,11 @@
       var pathData = this.path.getAttribute("d"),
           rawPath = stringToRawPath(pathData),
           transform = this.path.getAttribute("transform") || "translate(0,0)",
-          createAnchors = !this._rawPath || rawPath.totalPoints !== this._rawPath.totalPoints || rawPath.length !== this._rawPath.length,
+          createAnchors = !this._rawPath || rawPath.totalPoints !== this._rawPath.totalPoints || rawPath.map(function (s) {
+        return s.length;
+      }).join(",") !== this._rawPath.map(function (s) {
+        return s.length;
+      }).join(","),
           anchorVars = {
         callbackScope: this,
         snap: this.vars.anchorSnap,
@@ -22615,10 +22913,10 @@
           s[i - 1] = ((s[i - 1] + changeY) * rnd | 0) / rnd;
         } else if (a.isClosedStart) {
           pi = s.length - 2;
-          s[pi] = _round$b(s[pi] + changeX);
-          s[pi + 1] = _round$b(s[pi + 1] + changeY);
-          s[pi - 2] = _round$b(s[pi - 2] + changeX);
-          s[pi - 1] = _round$b(s[pi - 1] + changeY);
+          s[pi] = _round$c(s[pi] + changeX);
+          s[pi + 1] = _round$c(s[pi + 1] + changeY);
+          s[pi - 2] = _round$c(s[pi - 2] + changeX);
+          s[pi - 1] = _round$c(s[pi - 1] + changeY);
         }
 
         s[i] = ((s[i] + changeX) * rnd | 0) / rnd;
@@ -22869,7 +23167,7 @@
         y1 = +bezier[i - 1];
         x2 = +bezier[i + 4];
         y2 = +bezier[i + 5];
-        points.push(_round$b(x1), _round$b(y1), _round$b(x2), _round$b(y2));
+        points.push(_round$c(x1), _round$c(y1), _round$c(x2), _round$c(y2));
         bezierToPoints(x1, y1, +bezier[i], +bezier[i + 1], +bezier[i + 2], +bezier[i + 3], x2, y2, 1 / (precision * 200000), points, points.length - 2);
       }
 
@@ -22956,16 +23254,15 @@
     };
   };
 
-  PathEditor.version = "3.12.7";
+  PathEditor.version = "3.15.0";
   PathEditor.register = _initCore$j;
 
   /*!
-   * MotionPathHelper 3.12.7
+   * MotionPathHelper 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
 
@@ -23247,8 +23544,12 @@
       };
 
       refreshPath = function refreshPath() {
-        animation.invalidate();
-        animationToScrub.restart();
+        if (_this.editor._anchors.length < 2) {
+          console.warn("A motion path must have at least two anchors.");
+        } else {
+          animation.invalidate();
+          animationToScrub.restart();
+        }
       };
 
       vars.onRelease = vars.onDeleteAnchor = refreshPath;
@@ -23325,15 +23626,14 @@
     return PathEditor.create(path, vars);
   };
 
-  MotionPathHelper.version = "3.12.7";
+  MotionPathHelper.version = "3.15.0";
 
   /*!
-   * ScrollSmoother 3.12.7
+   * ScrollSmoother 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
+   * @license Copyright 2008-2026, GreenSock. All rights reserved.
+   * Subject to the terms at https://gsap.com/standard-license
    * @author: Jack Doyle, jack@greensock.com
   */
   var gsap$p,
@@ -23357,7 +23657,7 @@
       _getGSAP$l = function _getGSAP() {
     return gsap$p || _windowExists$a() && (gsap$p = window.gsap) && gsap$p.registerPlugin && gsap$p;
   },
-      _round$c = function _round(value) {
+      _round$d = function _round(value) {
     return Math.round(value * 100000) / 100000 || 0;
   },
       _maxScroll$1 = function _maxScroll(scroller) {
@@ -23779,7 +24079,7 @@
                 markers.length && !autoSpeed && markers.forEach(function (setter) {
                   return setter(y - extraY);
                 });
-                y = _round$c(y + yOffset);
+                y = _round$d(y + yOffset);
 
                 if (scrub) {
                   scrub.resetTo("y", y, -delta, true);
@@ -24070,6 +24370,7 @@
         },
         onRefresh: function onRefresh(self) {
           self.animation.invalidate();
+          scroll.y = 0;
           self.setPositions(self.start, refreshHeight() / speed);
           recordedRefreshScrub || killScrub(self);
           scroll.y = -scrollFunc() * speed;
@@ -24260,7 +24561,7 @@
 
     return ScrollSmoother;
   }();
-  ScrollSmoother.version = "3.12.7";
+  ScrollSmoother.version = "3.15.0";
 
   ScrollSmoother.create = function (vars) {
     return _mainInstance && vars && _mainInstance.content() === _toArray$9(vars.content)[0] ? _mainInstance : new ScrollSmoother(vars);
@@ -24273,586 +24574,587 @@
   _getGSAP$l() && gsap$p.registerPlugin(ScrollSmoother);
 
   /*!
-   * SplitText: 3.12.7
+   * SplitText 3.15.0
    * https://gsap.com
    *
-   * @license Copyright 2008-2025, GreenSock. All rights reserved.
-   * Subject to the terms at https://gsap.com/standard-license or for
-   * Club GSAP members, the agreement issued with that membership.
-   * @author: Jack Doyle, jack@greensock.com
-  */
-
-  var _doc$b,
-      _win$c,
+   * @license Copyright 2026, GreenSock. All rights reserved. Subject to the terms at https://gsap.com/standard-license.
+   * @author: Jack Doyle
+   */
+  var gsap$q,
+      _fonts,
+      _splitProp = typeof Symbol === "function" ? Symbol() : "_split",
       _coreInitted$l,
-      gsap$q,
-      _context$8,
-      _toArray$a,
-      _stripExp = /(?:\r|\n|\t\t)/g,
-      _multipleSpacesExp = /(?:\s\s+)/g,
-      _nonBreakingSpace = String.fromCharCode(160),
-      _initCore$l = function _initCore(core) {
-    _doc$b = document;
-    _win$c = window;
-    gsap$q = gsap$q || core || _win$c.gsap || console.warn("Please gsap.registerPlugin(SplitText)");
-
-    if (gsap$q) {
-      _toArray$a = gsap$q.utils.toArray;
-
-      _context$8 = gsap$q.core.context || function () {};
-
-      _coreInitted$l = 1;
+      _initIfNecessary = function _initIfNecessary() {
+    return _coreInitted$l || SplitText.register(window.gsap);
+  },
+      _charSegmenter = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter() : 0,
+      _toArray2 = function _toArray(r) {
+    return !r ? [] : typeof r === "string" ? _toArray2(document.querySelectorAll(r)) : "length" in r ? Array.from(r).reduce(function (acc, cur) {
+      typeof cur === "string" ? acc.push.apply(acc, _toArray2(cur)) : acc.push(cur);
+      return acc;
+    }, []) : [r];
+  },
+      _elements = function _elements(targets) {
+    return _toArray2(targets).filter(function (e) {
+      return e && e.nodeType === 1;
+    });
+  },
+      _emptyArray$2 = [],
+      _context$8 = function _context() {},
+      _defaultContext = {
+    add: function add(f) {
+      return f();
     }
   },
-      _getComputedStyle$2 = function _getComputedStyle(element) {
-    return _win$c.getComputedStyle(element);
+      _spacesRegEx = /\s+/g,
+      _emojiSafeRegEx = new RegExp("\\p{RI}\\p{RI}|\\p{Emoji}(\\p{EMod}|\\u{FE0F}\\u{20E3}?|[\\u{E0020}-\\u{E007E}]+\\u{E007F})?(\\u{200D}\\p{Emoji}(\\p{EMod}|\\u{FE0F}\\u{20E3}?|[\\u{E0020}-\\u{E007E}]+\\u{E007F})?)*|.", "gu"),
+      _emptyBounds = {
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0
   },
-      _isAbsolute = function _isAbsolute(vars) {
-    return vars.position === "absolute" || vars.absolute === true;
+      _findNextValidBounds = function _findNextValidBounds(allBounds, startIndex) {
+    while (++startIndex < allBounds.length && allBounds[startIndex] === _emptyBounds) {}
+
+    return allBounds[startIndex] || _emptyBounds;
   },
-      _findSpecialChars = function _findSpecialChars(text, chars) {
-    var i = chars.length,
-        s;
+      _revertOriginal = function _revertOriginal(_ref) {
+    var element = _ref.element,
+        html = _ref.html,
+        ariaL = _ref.ariaL,
+        ariaH = _ref.ariaH;
+    element.innerHTML = html;
+    ariaL ? element.setAttribute("aria-label", ariaL) : element.removeAttribute("aria-label");
+    ariaH ? element.setAttribute("aria-hidden", ariaH) : element.removeAttribute("aria-hidden");
+  },
+      _stretchToFitSpecialChars = function _stretchToFitSpecialChars(collection, specialCharsRegEx) {
+    if (specialCharsRegEx) {
+      var charsFound = new Set(collection.join("").match(specialCharsRegEx) || _emptyArray$2),
+          i = collection.length,
+          slots,
+          word,
+          _char,
+          combined;
 
-    while (--i > -1) {
-      s = chars[i];
+      if (charsFound.size) {
+        while (--i > -1) {
+          word = collection[i];
 
-      if (text.substr(0, s.length) === s) {
-        return s.length;
+          for (var _iterator = _createForOfIteratorHelperLoose(charsFound), _step; !(_step = _iterator()).done;) {
+            _char = _step.value;
+
+            if (_char.startsWith(word) && _char.length > word.length) {
+              slots = 0;
+              combined = word;
+
+              while (_char.startsWith(combined += collection[i + ++slots]) && combined.length < _char.length) {}
+
+              if (slots && combined.length === _char.length) {
+                collection[i] = _char;
+                collection.splice(i + 1, slots);
+                break;
+              }
+            }
+          }
+        }
       }
     }
+
+    return collection;
   },
-      _divStart = " style='position:relative;display:inline-block;'",
-      _cssClassFunc = function _cssClassFunc(cssClass, tag) {
-    if (cssClass === void 0) {
-      cssClass = "";
-    }
+      _disallowInline = function _disallowInline(element) {
+    return window.getComputedStyle(element).display === "inline" && (element.style.display = "inline-block");
+  },
+      _insertNodeBefore = function _insertNodeBefore(newChild, parent, existingChild) {
+    return parent.insertBefore(typeof newChild === "string" ? document.createTextNode(newChild) : newChild, existingChild);
+  },
+      _getWrapper = function _getWrapper(type, config, collection) {
+    var className = config[type + "sClass"] || "",
+        _config$tag = config.tag,
+        tag = _config$tag === void 0 ? "div" : _config$tag,
+        _config$aria = config.aria,
+        aria = _config$aria === void 0 ? "auto" : _config$aria,
+        _config$propIndex = config.propIndex,
+        propIndex = _config$propIndex === void 0 ? false : _config$propIndex,
+        display = type === "line" ? "block" : "inline-block",
+        incrementClass = className.indexOf("++") > -1,
+        wrapper = function wrapper(text) {
+      var el = document.createElement(tag),
+          i = collection.length + 1;
+      className && (el.className = className + (incrementClass ? " " + className + i : ""));
+      propIndex && el.style.setProperty("--" + type, i + "");
+      aria !== "none" && el.setAttribute("aria-hidden", "true");
 
-    var iterate = ~cssClass.indexOf("++"),
-        num = 1;
+      if (tag !== "span") {
+        el.style.position = "relative";
+        el.style.display = display;
+      }
 
-    if (iterate) {
-      cssClass = cssClass.split("++").join("");
-    }
+      el.textContent = text;
+      collection.push(el);
+      return el;
+    };
 
-    return function () {
-      return "<" + tag + _divStart + (cssClass ? " class='" + cssClass + (iterate ? num++ : "") + "'>" : ">");
+    incrementClass && (className = className.replace("++", ""));
+    wrapper.collection = collection;
+    return wrapper;
+  },
+      _getLineWrapper = function _getLineWrapper(element, nodes, config, collection) {
+    var lineWrapper = _getWrapper("line", config, collection),
+        textAlign = window.getComputedStyle(element).textAlign || "left";
+
+    return function (startIndex, endIndex) {
+      var newLine = lineWrapper("");
+      newLine.style.textAlign = textAlign;
+      element.insertBefore(newLine, nodes[startIndex]);
+
+      for (; startIndex < endIndex; startIndex++) {
+        newLine.appendChild(nodes[startIndex]);
+      }
+
+      newLine.normalize();
     };
   },
-      _swapText = function _swapText(element, oldText, newText) {
-    var type = element.nodeType;
+      _splitWordsAndCharsRecursively = function _splitWordsAndCharsRecursively(element, config, wordWrapper, charWrapper, prepForCharsOnly, deepSlice, ignore, charSplitRegEx, specialCharsRegEx, isNested) {
+    var _a;
 
-    if (type === 1 || type === 9 || type === 11) {
-      for (element = element.firstChild; element; element = element.nextSibling) {
-        _swapText(element, oldText, newText);
-      }
-    } else if (type === 3 || type === 4) {
-      element.nodeValue = element.nodeValue.split(oldText).join(newText);
-    }
-  },
-      _pushReversed = function _pushReversed(a, merge) {
-    var i = merge.length;
-
-    while (--i > -1) {
-      a.push(merge[i]);
-    }
-  },
-      _isBeforeWordDelimiter = function _isBeforeWordDelimiter(e, root, wordDelimiter) {
-    var next;
-
-    while (e && e !== root) {
-      next = e._next || e.nextSibling;
-
-      if (next) {
-        return next.textContent.charAt(0) === wordDelimiter;
-      }
-
-      e = e.parentNode || e._parent;
-    }
-  },
-      _deWordify = function _deWordify(e) {
-    var children = _toArray$a(e.childNodes),
-        l = children.length,
-        i,
-        child;
-
-    for (i = 0; i < l; i++) {
-      child = children[i];
-
-      if (child._isSplit) {
-        _deWordify(child);
-      } else {
-        if (i && child.previousSibling && child.previousSibling.nodeType === 3) {
-          child.previousSibling.nodeValue += child.nodeType === 3 ? child.nodeValue : child.firstChild.nodeValue;
-          e.removeChild(child);
-        } else if (child.nodeType !== 3) {
-          e.insertBefore(child.firstChild, child);
-          e.removeChild(child);
-        }
-      }
-    }
-  },
-      _getStyleAsNumber = function _getStyleAsNumber(name, computedStyle) {
-    return parseFloat(computedStyle[name]) || 0;
-  },
-      _setPositionsAfterSplit = function _setPositionsAfterSplit(element, vars, allChars, allWords, allLines, origWidth, origHeight) {
-    var cs = _getComputedStyle$2(element),
-        paddingLeft = _getStyleAsNumber("paddingLeft", cs),
-        lineOffsetY = -999,
-        borderTopAndBottom = _getStyleAsNumber("borderBottomWidth", cs) + _getStyleAsNumber("borderTopWidth", cs),
-        borderLeftAndRight = _getStyleAsNumber("borderLeftWidth", cs) + _getStyleAsNumber("borderRightWidth", cs),
-        padTopAndBottom = _getStyleAsNumber("paddingTop", cs) + _getStyleAsNumber("paddingBottom", cs),
-        padLeftAndRight = _getStyleAsNumber("paddingLeft", cs) + _getStyleAsNumber("paddingRight", cs),
-        lineThreshold = _getStyleAsNumber("fontSize", cs) * (vars.lineThreshold || 0.2),
-        textAlign = cs.textAlign,
-        charArray = [],
-        wordArray = [],
-        lineArray = [],
-        wordDelimiter = vars.wordDelimiter || " ",
-        tag = vars.tag ? vars.tag : vars.span ? "span" : "div",
-        types = vars.type || vars.split || "chars,words,lines",
-        lines = allLines && ~types.indexOf("lines") ? [] : null,
-        words = ~types.indexOf("words"),
-        chars = ~types.indexOf("chars"),
-        absolute = _isAbsolute(vars),
-        linesClass = vars.linesClass,
-        iterateLine = ~(linesClass || "").indexOf("++"),
-        spaceNodesToRemove = [],
-        isFlex = cs.display === "flex",
-        prevInlineDisplay = element.style.display,
-        i,
+    var nodes = Array.from(element.childNodes),
+        i = 0,
+        wordDelimiter = config.wordDelimiter,
+        _config$reduceWhiteSp = config.reduceWhiteSpace,
+        reduceWhiteSpace = _config$reduceWhiteSp === void 0 ? true : _config$reduceWhiteSp,
+        prepareText = config.prepareText,
+        elementBounds = element.getBoundingClientRect(),
+        lastBounds = elementBounds,
+        isPreformatted = !reduceWhiteSpace && window.getComputedStyle(element).whiteSpace.substring(0, 3) === "pre",
+        ignoredPreviousSibling = 0,
+        wordsCollection = wordWrapper.collection,
+        wordDelimIsNotSpace,
+        wordDelimString,
+        wordDelimSplitter,
+        curNode,
+        words,
+        curWordEl,
+        startsWithSpace,
+        endsWithSpace,
         j,
-        l,
-        node,
-        nodes,
-        isChild,
-        curLine,
-        addWordSpaces,
-        style,
-        lineNode,
-        lineWidth,
-        offset;
+        bounds,
+        curWordChars,
+        clonedNode,
+        curSubNode,
+        tempSubNode,
+        curTextContent,
+        wordText,
+        lastWordText,
+        k;
 
-    iterateLine && (linesClass = linesClass.split("++").join(""));
-    isFlex && (element.style.display = "block");
-    j = element.getElementsByTagName("*");
-    l = j.length;
-    nodes = [];
-
-    for (i = 0; i < l; i++) {
-      nodes[i] = j[i];
+    if (typeof wordDelimiter === "object") {
+      wordDelimSplitter = wordDelimiter.delimiter || wordDelimiter;
+      wordDelimString = wordDelimiter.replaceWith || "";
+    } else {
+      wordDelimString = wordDelimiter === "" ? "" : wordDelimiter || " ";
     }
 
-    if (lines || absolute) {
-      for (i = 0; i < l; i++) {
-        node = nodes[i];
-        isChild = node.parentNode === element;
+    wordDelimIsNotSpace = wordDelimString !== " ";
 
-        if (isChild || absolute || chars && !words) {
-          offset = node.offsetTop;
+    for (; i < nodes.length; i++) {
+      curNode = nodes[i];
 
-          if (lines && isChild && Math.abs(offset - lineOffsetY) > lineThreshold && (node.nodeName !== "BR" || i === 0)) {
-            curLine = [];
-            lines.push(curLine);
-            lineOffsetY = offset;
+      if (curNode.nodeType === 3) {
+        curTextContent = curNode.textContent || "";
+
+        if (reduceWhiteSpace) {
+          curTextContent = curTextContent.replace(_spacesRegEx, " ");
+        } else if (isPreformatted) {
+          curTextContent = curTextContent.replace(/\n/g, wordDelimString + "\n");
+        }
+
+        prepareText && (curTextContent = prepareText(curTextContent, element));
+        curNode.textContent = curTextContent;
+        words = wordDelimString || wordDelimSplitter ? curTextContent.split(wordDelimSplitter || wordDelimString) : curTextContent.match(charSplitRegEx) || _emptyArray$2;
+        lastWordText = words[words.length - 1];
+        endsWithSpace = wordDelimIsNotSpace ? lastWordText.slice(-1) === " " : !lastWordText;
+        lastWordText || words.pop();
+        lastBounds = elementBounds;
+        startsWithSpace = wordDelimIsNotSpace ? words[0].charAt(0) === " " : !words[0];
+        startsWithSpace && _insertNodeBefore(" ", element, curNode);
+        words[0] || words.shift();
+
+        _stretchToFitSpecialChars(words, specialCharsRegEx);
+
+        deepSlice && isNested || (curNode.textContent = "");
+
+        for (j = 1; j <= words.length; j++) {
+          wordText = words[j - 1];
+
+          if (!reduceWhiteSpace && isPreformatted && wordText.charAt(0) === "\n") {
+            (_a = curNode.previousSibling) == null ? void 0 : _a.remove();
+
+            _insertNodeBefore(document.createElement("br"), element, curNode);
+
+            wordText = wordText.slice(1);
           }
 
-          if (absolute) {
-            node._x = node.offsetLeft;
-            node._y = offset;
-            node._w = node.offsetWidth;
-            node._h = node.offsetHeight;
-          }
+          if (!reduceWhiteSpace && wordText === "") {
+            _insertNodeBefore(wordDelimString, element, curNode);
+          } else if (wordText === " ") {
+            element.insertBefore(document.createTextNode(" "), curNode);
+          } else {
+            wordDelimIsNotSpace && wordText.charAt(0) === " " && _insertNodeBefore(" ", element, curNode);
 
-          if (lines) {
-            if (node._isSplit && isChild || !chars && isChild || words && isChild || !words && node.parentNode.parentNode === element && !node.parentNode._isSplit) {
-              curLine.push(node);
-              node._x -= paddingLeft;
+            if (ignoredPreviousSibling && j === 1 && !startsWithSpace && wordsCollection.indexOf(ignoredPreviousSibling.parentNode) > -1) {
+              curWordEl = wordsCollection[wordsCollection.length - 1];
+              curWordEl.appendChild(document.createTextNode(charWrapper ? "" : wordText));
+            } else {
+              curWordEl = wordWrapper(charWrapper ? "" : wordText);
 
-              if (_isBeforeWordDelimiter(node, element, wordDelimiter)) {
-                node._wordEnd = true;
+              _insertNodeBefore(curWordEl, element, curNode);
+
+              ignoredPreviousSibling && j === 1 && !startsWithSpace && curWordEl.insertBefore(ignoredPreviousSibling, curWordEl.firstChild);
+            }
+
+            if (charWrapper) {
+              curWordChars = _charSegmenter ? _stretchToFitSpecialChars([].concat(_charSegmenter.segment(wordText)).map(function (s) {
+                return s.segment;
+              }), specialCharsRegEx) : wordText.match(charSplitRegEx) || _emptyArray$2;
+
+              for (k = 0; k < curWordChars.length; k++) {
+                curWordEl.appendChild(curWordChars[k] === " " ? document.createTextNode(" ") : charWrapper(curWordChars[k]));
               }
             }
 
-            if (node.nodeName === "BR" && (node.nextSibling && node.nextSibling.nodeName === "BR" || i === 0)) {
-              lines.push([]);
+            if (deepSlice && isNested) {
+              curTextContent = curNode.textContent = curTextContent.substring(wordText.length + 1, curTextContent.length);
+              bounds = curWordEl.getBoundingClientRect();
+
+              if (bounds.top > lastBounds.top && bounds.left <= lastBounds.left) {
+                clonedNode = element.cloneNode();
+                curSubNode = element.childNodes[0];
+
+                while (curSubNode && curSubNode !== curWordEl) {
+                  tempSubNode = curSubNode;
+                  curSubNode = curSubNode.nextSibling;
+                  clonedNode.appendChild(tempSubNode);
+                }
+
+                element.parentNode.insertBefore(clonedNode, element);
+                prepForCharsOnly && _disallowInline(clonedNode);
+              }
+
+              lastBounds = bounds;
             }
-          }
-        }
-      }
-    }
 
-    for (i = 0; i < l; i++) {
-      node = nodes[i];
-      isChild = node.parentNode === element;
-
-      if (node.nodeName === "BR") {
-        if (lines || absolute) {
-          node.parentNode && node.parentNode.removeChild(node);
-          nodes.splice(i--, 1);
-          l--;
-        } else if (!words) {
-          element.appendChild(node);
-        }
-
-        continue;
-      }
-
-      if (absolute) {
-        style = node.style;
-
-        if (!words && !isChild) {
-          node._x += node.parentNode._x;
-          node._y += node.parentNode._y;
-        }
-
-        style.left = node._x + "px";
-        style.top = node._y + "px";
-        style.position = "absolute";
-        style.display = "block";
-        style.width = node._w + 1 + "px";
-        style.height = node._h + "px";
-      }
-
-      if (!words && chars) {
-        if (node._isSplit) {
-          node._next = j = node.nextSibling;
-          node.parentNode.appendChild(node);
-
-          while (j && j.nodeType === 3 && j.textContent === " ") {
-            node._next = j.nextSibling;
-            node.parentNode.appendChild(j);
-            j = j.nextSibling;
-          }
-        } else if (node.parentNode._isSplit) {
-          node._parent = node.parentNode;
-
-          if (!node.previousSibling && node.firstChild) {
-            node.firstChild._isFirst = true;
-          }
-
-          if (node.nextSibling && node.nextSibling.textContent === " " && !node.nextSibling.nextSibling) {
-            spaceNodesToRemove.push(node.nextSibling);
-          }
-
-          node._next = node.nextSibling && node.nextSibling._isFirst ? null : node.nextSibling;
-          node.parentNode.removeChild(node);
-          nodes.splice(i--, 1);
-          l--;
-        } else if (!isChild) {
-          offset = !node.nextSibling && _isBeforeWordDelimiter(node.parentNode, element, wordDelimiter);
-          node.parentNode._parent && node.parentNode._parent.appendChild(node);
-          offset && node.parentNode.appendChild(_doc$b.createTextNode(" "));
-
-          if (tag === "span") {
-            node.style.display = "inline";
-          }
-
-          charArray.push(node);
-        }
-      } else if (node.parentNode._isSplit && !node._isSplit && node.innerHTML !== "") {
-        wordArray.push(node);
-      } else if (chars && !node._isSplit) {
-        if (tag === "span") {
-          node.style.display = "inline";
-        }
-
-        charArray.push(node);
-      }
-    }
-
-    i = spaceNodesToRemove.length;
-
-    while (--i > -1) {
-      spaceNodesToRemove[i].parentNode.removeChild(spaceNodesToRemove[i]);
-    }
-
-    if (lines) {
-      if (absolute) {
-        lineNode = _doc$b.createElement(tag);
-        element.appendChild(lineNode);
-        lineWidth = lineNode.offsetWidth + "px";
-        offset = lineNode.offsetParent === element ? 0 : element.offsetLeft;
-        element.removeChild(lineNode);
-      }
-
-      style = element.style.cssText;
-      element.style.cssText = "display:none;";
-
-      while (element.firstChild) {
-        element.removeChild(element.firstChild);
-      }
-
-      addWordSpaces = wordDelimiter === " " && (!absolute || !words && !chars);
-
-      for (i = 0; i < lines.length; i++) {
-        curLine = lines[i];
-        lineNode = _doc$b.createElement(tag);
-        lineNode.style.cssText = "display:block;text-align:" + textAlign + ";position:" + (absolute ? "absolute;" : "relative;");
-
-        if (linesClass) {
-          lineNode.className = linesClass + (iterateLine ? i + 1 : "");
-        }
-
-        lineArray.push(lineNode);
-        l = curLine.length;
-
-        for (j = 0; j < l; j++) {
-          if (curLine[j].nodeName !== "BR") {
-            node = curLine[j];
-            lineNode.appendChild(node);
-            addWordSpaces && node._wordEnd && lineNode.appendChild(_doc$b.createTextNode(" "));
-
-            if (absolute) {
-              if (j === 0) {
-                lineNode.style.top = node._y + "px";
-                lineNode.style.left = paddingLeft + offset + "px";
-              }
-
-              node.style.top = "0px";
-
-              if (offset) {
-                node.style.left = node._x - offset + "px";
-              }
+            if (j < words.length || endsWithSpace) {
+              _insertNodeBefore(j >= words.length ? " " : wordDelimIsNotSpace && wordText.slice(-1) === " " ? " " + wordDelimString : wordDelimString, element, curNode);
             }
           }
         }
 
-        if (l === 0) {
-          lineNode.innerHTML = "&nbsp;";
-        } else if (!words && !chars) {
-          _deWordify(lineNode);
+        element.removeChild(curNode);
+        ignoredPreviousSibling = 0;
+      } else if (curNode.nodeType === 1) {
+        if (ignore && ignore.indexOf(curNode) > -1) {
+          wordsCollection.indexOf(curNode.previousSibling) > -1 && wordsCollection[wordsCollection.length - 1].appendChild(curNode);
+          ignoredPreviousSibling = curNode;
+        } else {
+          _splitWordsAndCharsRecursively(curNode, config, wordWrapper, charWrapper, prepForCharsOnly, deepSlice, ignore, charSplitRegEx, specialCharsRegEx, true);
 
-          _swapText(lineNode, String.fromCharCode(160), " ");
+          ignoredPreviousSibling = 0;
         }
 
-        if (absolute) {
-          lineNode.style.width = lineWidth;
-          lineNode.style.height = node._h + "px";
-        }
-
-        element.appendChild(lineNode);
-      }
-
-      element.style.cssText = style;
-    }
-
-    if (absolute) {
-      if (origHeight > element.clientHeight) {
-        element.style.height = origHeight - padTopAndBottom + "px";
-
-        if (element.clientHeight < origHeight) {
-          element.style.height = origHeight + borderTopAndBottom + "px";
-        }
-      }
-
-      if (origWidth > element.clientWidth) {
-        element.style.width = origWidth - padLeftAndRight + "px";
-
-        if (element.clientWidth < origWidth) {
-          element.style.width = origWidth + borderLeftAndRight + "px";
-        }
+        prepForCharsOnly && _disallowInline(curNode);
       }
     }
-
-    isFlex && (prevInlineDisplay ? element.style.display = prevInlineDisplay : element.style.removeProperty("display"));
-
-    _pushReversed(allChars, charArray);
-
-    words && _pushReversed(allWords, wordArray);
-
-    _pushReversed(allLines, lineArray);
-  },
-      _splitRawText = function _splitRawText(element, vars, wordStart, charStart) {
-    var tag = vars.tag ? vars.tag : vars.span ? "span" : "div",
-        types = vars.type || vars.split || "chars,words,lines",
-        chars = ~types.indexOf("chars"),
-        absolute = _isAbsolute(vars),
-        wordDelimiter = vars.wordDelimiter || " ",
-        isWordDelimiter = function isWordDelimiter(_char) {
-      return _char === wordDelimiter || _char === _nonBreakingSpace && wordDelimiter === " ";
-    },
-        space = wordDelimiter !== " " ? "" : absolute ? "&#173; " : " ",
-        wordEnd = "</" + tag + ">",
-        wordIsOpen = 1,
-        specialChars = vars.specialChars ? typeof vars.specialChars === "function" ? vars.specialChars : _findSpecialChars : null,
-        text,
-        splitText,
-        i,
-        j,
-        l,
-        character,
-        hasTagStart,
-        testResult,
-        container = _doc$b.createElement("div"),
-        parent = element.parentNode;
-
-    parent.insertBefore(container, element);
-    container.textContent = element.nodeValue;
-    parent.removeChild(element);
-    element = container;
-    text = getText(element);
-    hasTagStart = text.indexOf("<") !== -1;
-
-    if (vars.reduceWhiteSpace !== false) {
-      text = text.replace(_multipleSpacesExp, " ").replace(_stripExp, "");
-    }
-
-    if (hasTagStart) {
-      text = text.split("<").join("{{LT}}");
-    }
-
-    l = text.length;
-    splitText = (text.charAt(0) === " " ? space : "") + wordStart();
-
-    for (i = 0; i < l; i++) {
-      character = text.charAt(i);
-
-      if (specialChars && (testResult = specialChars(text.substr(i), vars.specialChars))) {
-        character = text.substr(i, testResult || 1);
-        splitText += chars && character !== " " ? charStart() + character + "</" + tag + ">" : character;
-        i += testResult - 1;
-      } else if (isWordDelimiter(character) && !isWordDelimiter(text.charAt(i - 1)) && i) {
-        splitText += wordIsOpen ? wordEnd : "";
-        wordIsOpen = 0;
-
-        while (isWordDelimiter(text.charAt(i + 1))) {
-          splitText += space;
-          i++;
-        }
-
-        if (i === l - 1) {
-          splitText += space;
-        } else if (text.charAt(i + 1) !== ")") {
-          splitText += space + wordStart();
-          wordIsOpen = 1;
-        }
-      } else if (character === "{" && text.substr(i, 6) === "{{LT}}") {
-        splitText += chars ? charStart() + "{{LT}}" + "</" + tag + ">" : "{{LT}}";
-        i += 5;
-      } else if (character.charCodeAt(0) >= 0xD800 && character.charCodeAt(0) <= 0xDBFF || text.charCodeAt(i + 1) >= 0xFE00 && text.charCodeAt(i + 1) <= 0xFE0F) {
-        j = ((text.substr(i, 12).split(emojiExp) || [])[1] || "").length || 2;
-        splitText += chars && character !== " " ? charStart() + text.substr(i, j) + "</" + tag + ">" : text.substr(i, j);
-        i += j - 1;
-      } else {
-        splitText += chars && character !== " " ? charStart() + character + "</" + tag + ">" : character;
-      }
-    }
-
-    element.outerHTML = splitText + (wordIsOpen ? wordEnd : "");
-    hasTagStart && _swapText(parent, "{{LT}}", "<");
-  },
-      _split = function _split(element, vars, wordStart, charStart) {
-    var children = _toArray$a(element.childNodes),
-        l = children.length,
-        absolute = _isAbsolute(vars),
-        i,
-        child;
-
-    if (element.nodeType !== 3 || l > 1) {
-      vars.absolute = false;
-
-      for (i = 0; i < l; i++) {
-        child = children[i];
-        child._next = child._isFirst = child._parent = child._wordEnd = null;
-
-        if (child.nodeType !== 3 || /\S+/.test(child.nodeValue)) {
-          if (absolute && child.nodeType !== 3 && _getComputedStyle$2(child).display === "inline") {
-            child.style.display = "inline-block";
-            child.style.position = "relative";
-          }
-
-          child._isSplit = true;
-
-          _split(child, vars, wordStart, charStart);
-        }
-      }
-
-      vars.absolute = absolute;
-      element._isSplit = true;
-      return;
-    }
-
-    _splitRawText(element, vars, wordStart, charStart);
   };
 
-  var SplitText = function () {
-    function SplitText(element, vars) {
-      _coreInitted$l || _initCore$l();
-      this.elements = _toArray$a(element);
+  var _SplitText = function () {
+    function _SplitText(elements, config) {
+      var _this = this;
+
+      this.isSplit = false;
+
+      _initIfNecessary();
+
+      this.elements = _elements(elements);
       this.chars = [];
       this.words = [];
       this.lines = [];
-      this._originals = [];
-      this.vars = vars || {};
+      this.masks = [];
+      this.vars = config;
+      this.elements.forEach(function (el) {
+        var _a;
+
+        config.overwrite !== false && ((_a = el[_splitProp]) == null ? void 0 : _a._data.orig.filter(function (_ref2) {
+          var element = _ref2.element;
+          return element === el;
+        }).forEach(_revertOriginal));
+        el[_splitProp] = _this;
+      });
+
+      this._split = function () {
+        return _this.isSplit && _this.split(_this.vars);
+      };
+
+      var orig = [],
+          timerId,
+          checkWidths = function checkWidths() {
+        var i = orig.length,
+            o;
+
+        while (i--) {
+          o = orig[i];
+          var w = o.element.offsetWidth;
+
+          if (w !== o.width) {
+            o.width = w;
+
+            _this._split();
+
+            return;
+          }
+        }
+      };
+
+      this._data = {
+        orig: orig,
+        obs: typeof ResizeObserver !== "undefined" && new ResizeObserver(function () {
+          clearTimeout(timerId);
+          timerId = setTimeout(checkWidths, 200);
+        })
+      };
 
       _context$8(this);
 
-       this.split(vars);
+      this.split(config);
     }
 
-    var _proto = SplitText.prototype;
+    var _proto = _SplitText.prototype;
 
-    _proto.split = function split(vars) {
-      this.isSplit && this.revert();
-      this.vars = vars = vars || this.vars;
-      this._originals.length = this.chars.length = this.words.length = this.lines.length = 0;
+    _proto.split = function split(config) {
+      var _this2 = this;
 
-      var i = this.elements.length,
-          tag = vars.tag ? vars.tag : vars.span ? "span" : "div",
-          wordStart = _cssClassFunc(vars.wordsClass, tag),
-          charStart = _cssClassFunc(vars.charsClass, tag),
-          origHeight,
-          origWidth,
-          e;
+      (this._ctx || _defaultContext).add(function () {
+        _this2.isSplit && _this2.revert();
+        _this2.vars = config = config || _this2.vars || {};
 
-      while (--i > -1) {
-        e = this.elements[i];
-        this._originals[i] = {
-          html: e.innerHTML,
-          style: e.getAttribute("style")
-        };
-        origHeight = e.clientHeight;
-        origWidth = e.clientWidth;
+        var _this2$vars = _this2.vars,
+            _this2$vars$type = _this2$vars.type,
+            type = _this2$vars$type === void 0 ? "chars,words,lines" : _this2$vars$type,
+            _this2$vars$aria = _this2$vars.aria,
+            aria = _this2$vars$aria === void 0 ? "auto" : _this2$vars$aria,
+            _this2$vars$deepSlice = _this2$vars.deepSlice,
+            deepSlice = _this2$vars$deepSlice === void 0 ? true : _this2$vars$deepSlice,
+            smartWrap = _this2$vars.smartWrap,
+            onSplit = _this2$vars.onSplit,
+            _this2$vars$autoSplit = _this2$vars.autoSplit,
+            autoSplit = _this2$vars$autoSplit === void 0 ? false : _this2$vars$autoSplit,
+            specialChars = _this2$vars.specialChars,
+            mask = _this2$vars.mask,
+            splitLines = type.indexOf("lines") > -1,
+            splitCharacters = type.indexOf("chars") > -1,
+            splitWords = type.indexOf("words") > -1,
+            onlySplitCharacters = splitCharacters && !splitWords && !splitLines,
+            specialCharsRegEx = specialChars && ("push" in specialChars ? new RegExp("(?:" + specialChars.join("|") + ")", "gu") : specialChars),
+            finalCharSplitRegEx = specialCharsRegEx ? new RegExp(specialCharsRegEx.source + "|" + _emojiSafeRegEx.source, "gu") : _emojiSafeRegEx,
+            ignore = !!config.ignore && _elements(config.ignore),
+            _this2$_data = _this2._data,
+            orig = _this2$_data.orig,
+            animTime = _this2$_data.animTime,
+            obs = _this2$_data.obs,
+            onSplitResult;
 
-        _split(e, vars, wordStart, charStart);
+        if (splitCharacters || splitWords || splitLines) {
+          var _this2$masks;
 
-        _setPositionsAfterSplit(e, vars, this.chars, this.words, this.lines, origWidth, origHeight);
-      }
+          _this2.elements.forEach(function (element, index) {
+            var _this2$lines, _this2$words, _this2$chars;
 
-      this.chars.reverse();
-      this.words.reverse();
-      this.lines.reverse();
-      this.isSplit = true;
+            orig[index] = {
+              element: element,
+              html: element.innerHTML,
+              ariaL: element.getAttribute("aria-label"),
+              ariaH: element.getAttribute("aria-hidden")
+            };
+            aria === "auto" ? element.setAttribute("aria-label", (element.textContent || "").trim()) : aria === "hidden" && element.setAttribute("aria-hidden", "true");
+
+            var chars = [],
+                words = [],
+                lines = [],
+                charWrapper = splitCharacters ? _getWrapper("char", config, chars) : null,
+                wordWrapper = _getWrapper("word", config, words),
+                i,
+                curWord,
+                smartWrapSpan,
+                nextSibling;
+
+            _splitWordsAndCharsRecursively(element, config, wordWrapper, charWrapper, onlySplitCharacters, deepSlice && (splitLines || onlySplitCharacters), ignore, finalCharSplitRegEx, specialCharsRegEx, false);
+
+            if (splitLines) {
+              var nodes = _toArray2(element.childNodes),
+                  wrapLine = _getLineWrapper(element, nodes, config, lines),
+                  curNode,
+                  toRemove = [],
+                  lineStartIndex = 0,
+                  allBounds = nodes.map(function (n) {
+                return n.nodeType === 1 ? n.getBoundingClientRect() : _emptyBounds;
+              }),
+                  lastBounds = _emptyBounds,
+                  curBounds;
+
+              for (i = 0; i < nodes.length; i++) {
+                curNode = nodes[i];
+
+                if (curNode.nodeType === 1) {
+                  if (curNode.nodeName === "BR") {
+                    if (!i || nodes[i - 1].nodeName !== "BR") {
+                      toRemove.push(curNode);
+                      wrapLine(lineStartIndex, i + 1);
+                    }
+
+                    lineStartIndex = i + 1;
+                    lastBounds = _findNextValidBounds(allBounds, i);
+                  } else {
+                    curBounds = allBounds[i];
+
+                    if (i && curBounds.top > lastBounds.top && curBounds.left < lastBounds.left + lastBounds.width - 1) {
+                      wrapLine(lineStartIndex, i);
+                      lineStartIndex = i;
+                    }
+
+                    lastBounds = curBounds;
+                  }
+                }
+              }
+
+              lineStartIndex < i && wrapLine(lineStartIndex, i);
+              toRemove.forEach(function (el) {
+                var _a;
+
+                return (_a = el.parentNode) == null ? void 0 : _a.removeChild(el);
+              });
+            }
+
+            if (!splitWords) {
+              for (i = 0; i < words.length; i++) {
+                curWord = words[i];
+
+                if (splitCharacters || !curWord.nextSibling || curWord.nextSibling.nodeType !== 3) {
+                  if (smartWrap && !splitLines) {
+                    smartWrapSpan = document.createElement("span");
+                    smartWrapSpan.style.whiteSpace = "nowrap";
+
+                    while (curWord.firstChild) {
+                      smartWrapSpan.appendChild(curWord.firstChild);
+                    }
+
+                    curWord.replaceWith(smartWrapSpan);
+                  } else {
+                    var _curWord;
+
+                    (_curWord = curWord).replaceWith.apply(_curWord, curWord.childNodes);
+                  }
+                } else {
+                  nextSibling = curWord.nextSibling;
+
+                  if (nextSibling && nextSibling.nodeType === 3) {
+                    nextSibling.textContent = (curWord.textContent || "") + (nextSibling.textContent || "");
+                    curWord.remove();
+                  }
+                }
+              }
+
+              words.length = 0;
+              element.normalize();
+            }
+
+            (_this2$lines = _this2.lines).push.apply(_this2$lines, lines);
+
+            (_this2$words = _this2.words).push.apply(_this2$words, words);
+
+            (_this2$chars = _this2.chars).push.apply(_this2$chars, chars);
+          });
+
+          mask && _this2[mask] && (_this2$masks = _this2.masks).push.apply(_this2$masks, _this2[mask].map(function (el) {
+            var maskEl = el.cloneNode();
+            el.replaceWith(maskEl);
+            maskEl.appendChild(el);
+            el.className && (maskEl.className = el.className.trim().split(" ").map(function (s) {
+              return s + "-mask";
+            }).join(" "));
+            maskEl.style.overflow = "clip";
+            return maskEl;
+          }));
+        }
+
+        _this2.isSplit = true;
+        _fonts && splitLines && autoSplit && _fonts.addEventListener("loadingdone", _this2._split);
+
+        if ((onSplitResult = onSplit && onSplit(_this2)) && onSplitResult.totalTime) {
+          _this2._data.anim = animTime ? onSplitResult.totalTime(animTime) : onSplitResult;
+        }
+
+        splitLines && autoSplit && _this2.elements.forEach(function (element, index) {
+          orig[index].width = element.offsetWidth;
+          obs && obs.observe(element);
+        });
+      });
+
       return this;
+    };
+
+    _proto.kill = function kill() {
+      var obs = this._data.obs;
+      obs && obs.disconnect();
+      _fonts == null ? void 0 : _fonts.removeEventListener("loadingdone", this._split);
     };
 
     _proto.revert = function revert() {
-      var originals = this._originals;
+      var _a, _b;
 
-      if (!originals) {
-        throw "revert() call wasn't scoped properly.";
+      if (this.isSplit) {
+        var _this$_data = this._data,
+            orig = _this$_data.orig,
+            anim = _this$_data.anim;
+        this.kill();
+        orig.forEach(_revertOriginal);
+        this.chars.length = this.words.length = this.lines.length = orig.length = this.masks.length = 0;
+        this.isSplit = false;
+
+        if (anim) {
+          this._data.animTime = anim.totalTime();
+          anim.revert();
+        }
+
+        (_b = (_a = this.vars).onRevert) == null ? void 0 : _b.call(_a, this);
       }
 
-      this.elements.forEach(function (e, i) {
-        e.innerHTML = originals[i].html;
-        e.setAttribute("style", originals[i].style || "");
-      });
-      this.chars = [];
-      this.words = [];
-      this.lines = [];
-      this.isSplit = false;
       return this;
     };
 
-    SplitText.create = function create(element, vars) {
-      return new SplitText(element, vars);
+    _SplitText.create = function create(elements, config) {
+      return new _SplitText(elements, config);
     };
 
-    return SplitText;
+    _SplitText.register = function register(core) {
+      gsap$q = gsap$q || core || window.gsap;
+
+      if (gsap$q) {
+        _toArray2 = gsap$q.utils.toArray;
+        _context$8 = gsap$q.core.context || _context$8;
+      }
+
+      if (!_coreInitted$l && window.innerWidth > 0) {
+        _fonts = document.fonts;
+        _coreInitted$l = true;
+      }
+    };
+
+    return _SplitText;
   }();
-  SplitText.version = "3.12.7";
-  SplitText.register = _initCore$l;
+
+  _SplitText.version = "3.15.0";
+  var SplitText = _SplitText;
 
   var gsapWithCSS = gsap.registerPlugin(CSSPlugin) || gsap,
       TweenMaxWithCSS = gsapWithCSS.core.Tween;

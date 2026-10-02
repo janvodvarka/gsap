@@ -5,12 +5,11 @@
 }(this, (function (exports) { 'use strict';
 
 	/*!
-	 * DrawSVGPlugin 3.12.7
+	 * DrawSVGPlugin 3.15.0
 	 * https://gsap.com
 	 *
-	 * @license Copyright 2008-2025, GreenSock. All rights reserved.
-	 * Subject to the terms at https://gsap.com/standard-license or for
-	 * Club GSAP members, the agreement issued with that membership.
+	 * @license Copyright 2008-2026, GreenSock. All rights reserved.
+	 * Subject to the terms at https://gsap.com/standard-license
 	 * @author: Jack Doyle, jack@greensock.com
 	*/
 	var gsap,
@@ -195,7 +194,7 @@
 	};
 
 	var DrawSVGPlugin = {
-	  version: "3.12.7",
+	  version: "3.15.0",
 	  name: "drawSVG",
 	  register: function register(core) {
 	    gsap = core;
@@ -290,9 +289,9 @@
 	        dash = data._dash || ratio && ratio !== 1 && 0.0001 || 0;
 	        length = data._length - dash + 0.1;
 	        offset = data._offset;
-	        dash && offset && dash + Math.abs(offset % data._length) > data._length - 0.2 && (offset += offset < 0 ? 0.1 : -0.1) && (length += 0.1);
+	        dash && offset && dash + Math.abs(offset % data._length) > data._length - 0.05 && (offset += offset < 0 ? 0.005 : -0.005) && (length += 0.005);
 	        style.strokeDashoffset = dash ? offset : offset + 0.001;
-	        style.strokeDasharray = length < 0.2 ? "none" : dash ? dash + "px," + (data._nowrap ? 999999 : length) + "px" : "0px, 999999px";
+	        style.strokeDasharray = length < 0.1 ? "none" : dash ? dash + "px," + (data._nowrap ? 999999 : length) + "px" : "0px, 999999px";
 	      }
 	    } else {
 	      data.styles.revert();

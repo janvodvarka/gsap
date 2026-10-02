@@ -55,12 +55,11 @@
 	}
 
 	/*!
-	 * ScrambleTextPlugin 3.12.7
+	 * ScrambleTextPlugin 3.15.0
 	 * https://gsap.com
 	 *
-	 * @license Copyright 2008-2025, GreenSock. All rights reserved.
-	 * Subject to the terms at https://gsap.com/standard-license or for
-	 * Club GSAP members, the agreement issued with that membership.
+	 * @license Copyright 2008-2026, GreenSock. All rights reserved.
+	 * Subject to the terms at https://gsap.com/standard-license
 	 * @author: Jack Doyle, jack@greensock.com
 	*/
 
@@ -117,7 +116,7 @@
 	};
 
 	var ScrambleTextPlugin = {
-	  version: "3.12.7",
+	  version: "3.15.0",
 	  name: "scrambleText",
 	  register: function register(core, Plugin, propTween) {
 	    gsap = core;

@@ -5,12 +5,11 @@
 }(this, (function (exports) { 'use strict';
 
 	/*!
-	 * Physics2DPlugin 3.12.7
+	 * Physics2DPlugin 3.15.0
 	 * https://gsap.com
 	 *
-	 * @license Copyright 2008-2025, GreenSock. All rights reserved.
-	 * Subject to the terms at https://gsap.com/standard-license or for
-	 * Club GSAP members, the agreement issued with that membership.
+	 * @license Copyright 2008-2026, GreenSock. All rights reserved.
+	 * Subject to the terms at https://gsap.com/standard-license
 	 * @author: Jack Doyle, jack@greensock.com
 	*/
 	var gsap,
@@ -57,7 +56,7 @@
 	};
 
 	var Physics2DPlugin = {
-	  version: "3.12.7",
+	  version: "3.15.0",
 	  name: "physics2D",
 	  register: _initCore,
 	  init: function init(target, value, tween) {
